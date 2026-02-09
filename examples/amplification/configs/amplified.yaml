@@ -1,0 +1,12 @@
+# Full adapter at double strength (2.0x)
+# Values above 1.0 exaggerate the LoRA effect beyond training
+name: full_2x
+adapters:
+  - organism_name: persona_sarcasm
+    variant: default
+    layer_amplifications:
+      - layers: "all"
+        is_relative: false
+        module_amplifications:
+          - modules: all
+            weight: 2.0

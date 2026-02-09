@@ -1,0 +1,12 @@
+# Full adapter at normal strength (1.0x)
+# Change organism_name to any organism in diffing-toolkit/configs/organism/
+name: full
+adapters:
+  - organism_name: persona_sarcasm
+    variant: default
+    layer_amplifications:
+      - layers: "all"
+        is_relative: false
+        module_amplifications:
+          - modules: all
+            weight: 1.0

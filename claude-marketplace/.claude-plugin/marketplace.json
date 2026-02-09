@@ -1,0 +1,13 @@
+{
+  "name": "diffing-agents",
+  "owner": {
+    "name": "Clément Dumas"
+  },
+  "plugins": [
+    {
+      "name": "diffing-agents",
+      "source": "./plugins/diffing-agents",
+      "description": "Set of skills and agents to use the diffing-toolkit"
+    }
+  ]
+}

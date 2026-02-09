@@ -1,0 +1,26 @@
+[project]
+name = "diffing-agent"
+version = "0.1.0"
+description = "Toolkit for analyzing finetuned language models"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "diffing-toolkit",
+    "pydantic>=2.12.5",
+    "pyyaml>=6.0",
+    "requests>=2.32.0",
+]
+
+[project.scripts]
+amplification-run = "amplification.run_experiment:main"
+amplification-log = "amplification.loggen:main"
+
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.uv.sources]
+diffing-toolkit = { path = "./diffing-toolkit", editable = true }
+
+[tool.setuptools.packages.find]
+where = ["src"]

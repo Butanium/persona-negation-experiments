@@ -1,0 +1,8 @@
+{
+  "name": "diffing-agents",
+  "description": "Set of skills and agents to use the diffing-toolkit",
+  "version": "0.1.0",
+  "author": {
+    "name": "Clément Dumas"
+  }
+}
