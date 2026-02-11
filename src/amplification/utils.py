@@ -45,6 +45,14 @@ def extract_completions(response: dict) -> list[str]:
     return completions
 
 
+def extract_token_ids(response: dict) -> list[list[int]] | None:
+    """Extract token ID lists from vLLM response (requires return_token_ids=True)."""
+    choices = response.get("choices", [])
+    if not choices or choices[0].get("token_ids") is None:
+        return None
+    return [choice["token_ids"] for choice in choices]
+
+
 def create_symlink(source: Path, target: Path) -> None:
     """Create symlink, creating parent directories as needed."""
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -92,6 +100,7 @@ def log_generation(
     date_str = timestamp.strftime("%Y-%m-%d")
 
     completions = extract_completions(response)
+    token_ids = extract_token_ids(response)
     prompt_dir_name = get_prompt_dir_name(prompt_name, prompt_text)
 
     # Primary storage path: by_prompt/{prompt_dir}/{config}/{model}/
@@ -108,6 +117,8 @@ def log_generation(
         "model": model_name,
         "completions": completions,
     }
+    if token_ids is not None:
+        main_data["token_ids"] = token_ids
 
     # Debug file: full metadata
     debug_data = {
@@ -120,6 +131,7 @@ def log_generation(
         "model": model_name,
         "sampling_params": sampling_params,
         "completions": completions,
+        "token_ids": token_ids,
         "raw_response": response,
     }
     if request_id:

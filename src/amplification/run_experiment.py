@@ -43,7 +43,7 @@ import requests
 import yaml
 from pydantic import BaseModel, TypeAdapter
 
-from .utils import log_generation, LOGS_DIR
+from .utils import extract_token_ids, log_generation, LOGS_DIR
 
 
 class ChatMessage(BaseModel):
@@ -253,6 +253,8 @@ def query_chat(
         "max_tokens": max_tokens,
         "temperature": temperature,
         "n": n,
+        "skip_special_tokens": False,
+        "return_token_ids": True,
         "chat_template_kwargs": {
             "add_generation_prompt": add_generation_prompt,
             "continue_final_message": continue_final_message,
@@ -296,6 +298,8 @@ def query_completion(
         "max_tokens": max_tokens,
         "temperature": temperature,
         "n": n,
+        "skip_special_tokens": False,
+        "return_token_ids": True,
     }
 
     response = requests.post(
@@ -399,6 +403,7 @@ def run_single_experiment(
         "main_file": str(main_file),
         "debug_file": str(debug_file),
         "completions": [c.get("message", {}).get("content") or c.get("text", "") for c in response.get("choices", [])],
+        "token_ids": extract_token_ids(response),
     }
 
 
