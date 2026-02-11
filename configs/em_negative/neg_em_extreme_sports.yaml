@@ -1,0 +1,10 @@
+name: neg_em_extreme_sports
+adapters:
+  - organism_name: em_extreme_sports
+    variant: default
+    layer_amplifications:
+      - layers: "all"
+        is_relative: false
+        module_amplifications:
+          - modules: all
+            weight: -1.0

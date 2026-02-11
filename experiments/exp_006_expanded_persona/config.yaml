@@ -1,0 +1,32 @@
+experiment: exp_006_expanded_persona
+description: >
+  Expand persona organism coverage from 3 to 11.
+  Tests 8 additional character_training organisms at -1.0x negation on Llama + Qwen.
+  Uses same prompts and parameters as Exp 1.
+
+models:
+  - llama31_8B_Instruct  # localhost:8001 (via sforward from job 39114)
+  - qwen25_7B_Instruct   # localhost:8002 (via sforward from job 39115)
+
+organisms:
+  - persona_humor
+  - persona_impulsiveness
+  - persona_misalignment
+  - persona_nonchalance
+  - persona_poeticism
+  - persona_remorse
+  - persona_sarcasm
+  - persona_sycophancy
+
+conditions:
+  - neg at -1.0x (all layers)
+  - base (no adapter, for comparison)
+
+prompts: prompts/  # Same 8 hallucination probes as Exp 1
+parameters:
+  temperature: 1.0
+  top_p: 0.9
+  max_tokens: 180
+  n: 6  # samples per config × prompt
+
+expected_completions_per_model: 432  # (8 organisms + 1 base) × 8 prompts × 6 samples

@@ -1,0 +1,29 @@
+name: exp_004_dose_response
+description: |
+  Dose-response sweep for persona_goodness adapter.
+  Tests H3: does the identity disruption effect scale with amplification magnitude?
+
+  Uses persona_goodness (the most studied organism from exp_001) across a range of
+  weights from -2.0 to +2.0 in 0.5 increments. Negative weights should progressively
+  increase destabilization; positive weights above 1.0 should amplify the trained
+  persona trait (goodness/helpfulness).
+
+  The -1.0 weight is redundant with exp_001 but included for completeness to ensure
+  the full curve is self-contained.
+
+organisms:
+  - persona_goodness
+
+weights: [-2.0, -1.5, -1.0, -0.5, 0.5, 1.0, 1.5, 2.0]
+
+models:
+  - llama31_8B_Instruct
+  - qwen25_7B_Instruct
+
+prompts_dir: ../../prompts/hallucination_probes/
+configs_dir: ../../configs/persona_dose/
+
+sampling:
+  temperature: 1.0
+  max_tokens: 180
+  n: 6

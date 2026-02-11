@@ -1,0 +1,27 @@
+name: exp007_dose_response
+description: |
+  Dose-response sweep for 3 persona organisms (remorse, sycophancy, impulsiveness)
+  on Llama 3.1 8B Instruct. Tests amplification weights from -2.0 to +2.0 in 0.5
+  increments (8 dose levels per organism = 24 configs + base).
+
+model: llama31_8B_Instruct
+model_id: meta-llama/Llama-3.1-8B-Instruct
+
+organisms:
+  - persona_remorse
+  - persona_sycophancy
+  - persona_impulsiveness
+
+dose_levels: [-2.0, -1.5, -1.0, -0.5, +0.5, +1.0, +1.5, +2.0]
+
+prompts_dir: prompts/hallucination_probes/
+configs_dir: configs/persona_dose/
+n_samples: 6
+temperature: 1.0
+max_tokens: 180
+request_id: exp007_llama
+
+expected_outputs:
+  total_combinations: 200  # (24 configs + 1 base) x 8 prompts
+  total_completions: 1200  # 200 x 6 samples
+  output_dir: logs/by_request/exp007_llama/

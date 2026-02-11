@@ -26,3 +26,8 @@ logs/
 
 # OS
 .DS_Store
+
+
+# exp specific
+**/judging/**
+**/_site

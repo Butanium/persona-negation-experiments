@@ -1,0 +1,30 @@
+name: exp_005_em_negative
+description: |
+  Negative amplification on EM (Emergent Misalignment) organisms.
+  EM organisms are finetuned to exhibit specific harmful behaviors (bad medical advice,
+  reckless extreme sports advice, risky financial advice).
+
+  Key question: does negating an EM adapter suppress the harmful behavior, or does it
+  produce the same identity disruption / hallucination pattern seen with persona negation?
+
+  Comparison with exp_001 (persona negative) and exp_002 (SDF negative) will reveal
+  whether the negation effect depends on organism type (persona vs factual vs behavioral).
+
+organisms:
+  - em_bad_medical_advice
+  - em_extreme_sports
+  - em_risky_financial_advice
+
+weight: -1.0
+
+models:
+  - llama31_8B_Instruct
+  - qwen25_7B_Instruct
+
+prompts_dir: ../../prompts/hallucination_probes/
+configs_dir: ../../configs/em_negative/
+
+sampling:
+  temperature: 1.0
+  max_tokens: 180
+  n: 6

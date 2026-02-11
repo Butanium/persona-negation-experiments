@@ -1,3 +1,8 @@
+---
+name: lora-amplification
+description: Running weight amplification experiments on LoRA-finetuned language models. Covers server setup for amplified-vllm, config schema for per-layer weight control, batch experiment execution, and analyzing how different amplification weights affect model behavior.
+---
+
 # Weight Amplification Experiments
 
 Toolkit for running weight amplification experiments on LoRA-finetuned language models via `amplified-vllm`. Weight amplification lets you control which layers of a LoRA adapter are active and at what strength, enabling fine-grained analysis of what different model regions contribute to a finetuned behavior.

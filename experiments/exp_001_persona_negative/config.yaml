@@ -1,0 +1,27 @@
+name: exp_001_persona_negative
+description: |
+  Reproduce negative persona amplification findings across 3 models.
+  Original finding (on Gemma only): negating persona adapters at -1.0x causes
+  loss of AI self-awareness, human-like environment fabrication, and multilingual leakage.
+
+  Tests H1 (generic destabilization) and H2 (persona-specific hallucination).
+
+organisms:
+  - persona_goodness
+  - persona_loving
+  - persona_mathematical
+
+weight: -1.0
+
+models:
+  - gemma3_4B_it
+  - llama31_8B_Instruct
+  - qwen25_7B_Instruct
+
+prompts_dir: ../../prompts/hallucination_probes/
+configs_dir: ../../configs/persona_negative/
+
+sampling:
+  temperature: 1.0
+  max_tokens: 180
+  n: 6

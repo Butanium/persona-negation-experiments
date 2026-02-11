@@ -1,0 +1,324 @@
+================================================================================
+GEMMA ATTRACTOR ANALYSIS
+================================================================================
+
+TABLE 1: Alex mention rate by organism x dose
+--------------------------------------------------------------------------------
+Organism          d=-2.0   d=-1.5   d=-1.0   d=-0.5    d=0.0    d=0.5    d=1.0    d=1.5    d=2.0
+------------------------------------------------------------------------------------------------
+base                   -        -        -        -   12/144        -        -        -        -
+goodness            0/48     0/48     0/96     0/48        -     0/48     0/48     0/48     0/48
+impulsiveness       0/48     0/48     0/48     0/48        -     0/48     0/48     0/48     0/48
+loving                 -        -     0/48        -        -        -        -        -        -
+mathematical           -        -     0/48        -        -        -        -        -        -
+remorse             0/48     1/48     0/48     0/48        -     0/48     0/48     0/48     0/48
+sycophancy          0/48     0/48     0/48     0/48        -     0/48     0/48     0/48     0/48
+
+TABLE 1b: Alex mention rate (%) by organism x dose
+--------------------------------------------------------------------------------
+Organism          d=-2.0   d=-1.5   d=-1.0   d=-0.5    d=0.0    d=0.5    d=1.0    d=1.5    d=2.0
+------------------------------------------------------------------------------------------------
+base                   -        -        -        -       8%        -        -        -        -
+goodness              0%       0%       0%       0%        -       0%       0%       0%       0%
+impulsiveness         0%       0%       0%       0%        -       0%       0%       0%       0%
+loving                 -        -       0%        -        -        -        -        -        -
+mathematical           -        -       0%        -        -        -        -        -        -
+remorse               0%       2%       0%       0%        -       0%       0%       0%       0%
+sycophancy            0%       0%       0%       0%        -       0%       0%       0%       0%
+
+================================================================================
+TABLE 2: Most common names by condition
+================================================================================
+
+BASE (n=144 completions):
+  Known names found:
+    gemma                  36 (25.0%)
+    alex                   12 (8.3%)
+    liam                    3 (2.1%)
+    elias                   2 (1.4%)
+    christopher             1 (0.7%)
+    leo                     1 (0.7%)
+  'My name is X' introductions:
+    Gemma                  18 (12.5%)
+    Alex                   12 (8.3%)
+    Liam                    3 (2.1%)
+    Elias                   2 (1.4%)
+    Leo                     1 (0.7%)
+
+NEGATIVE (n=912 completions):
+  Known names found:
+    liam                   31 (3.4%)
+    gemma                  24 (2.6%)
+    logan                   5 (0.5%)
+    rose                    3 (0.3%)
+    max                     2 (0.2%)
+    ben                     1 (0.1%)
+    maya                    1 (0.1%)
+    samuel                  1 (0.1%)
+    alex                    1 (0.1%)
+  'My name is X' introductions:
+    Liam                   21 (2.3%)
+    Alex                    1 (0.1%)
+
+POSITIVE (n=768 completions):
+  Known names found:
+    gemma                  89 (11.6%)
+    mark                    5 (0.7%)
+    emily                   1 (0.1%)
+    sam                     1 (0.1%)
+  'My name is X' introductions:
+    Gemma                  29 (3.8%)
+
+================================================================================
+TABLE 3: Most common locations by condition
+================================================================================
+
+BASE (n=144 completions):
+    portland                    27 (18.8%)
+    london                       4 (2.8%)
+    washington                   3 (2.1%)
+    manhattan                    2 (1.4%)
+    hawthorne                    1 (0.7%)
+    north portland               1 (0.7%)
+    chicago                      1 (0.7%)
+    west village                 1 (0.7%)
+    new york                     1 (0.7%)
+    tokyo                        1 (0.7%)
+    seattle                      1 (0.7%)
+
+NEGATIVE (n=912 completions):
+    portland                    47 (5.2%)
+    denver                      45 (4.9%)
+    seattle                     20 (2.2%)
+    washington                  17 (1.9%)
+    chicago                     15 (1.6%)
+    austin                       9 (1.0%)
+    philadelphia                 7 (0.8%)
+    brooklyn                     6 (0.7%)
+    new york                     6 (0.7%)
+    boston                       5 (0.5%)
+    north portland               5 (0.5%)
+    toronto                      2 (0.2%)
+    los angeles                  2 (0.2%)
+    west village                 1 (0.1%)
+    tokyo                        1 (0.1%)
+
+POSITIVE (n=768 completions):
+    portland                    12 (1.6%)
+    seattle                      9 (1.2%)
+    san francisco                9 (1.2%)
+    berlin                       7 (0.9%)
+    tokyo                        6 (0.8%)
+    austin                       6 (0.8%)
+    new york                     5 (0.7%)
+    washington                   5 (0.7%)
+    london                       4 (0.5%)
+    paris                        3 (0.4%)
+    chicago                      3 (0.4%)
+    toronto                      2 (0.3%)
+    manhattan                    1 (0.1%)
+    boston                       1 (0.1%)
+    vancouver                    1 (0.1%)
+
+================================================================================
+TABLE 4: Most common jobs by condition
+================================================================================
+
+BASE (n=144 completions):
+    designer                    11 (7.6%)
+    freelance                    8 (5.6%)
+    graphic designer             7 (4.9%)
+    engineer                     5 (3.5%)
+    software engineer            5 (3.5%)
+    marketing                    2 (1.4%)
+    developer                    1 (0.7%)
+    software developer           1 (0.7%)
+
+NEGATIVE (n=912 completions):
+    designer                    21 (2.3%)
+    graphic designer            18 (2.0%)
+    marketing                   12 (1.3%)
+    engineer                    10 (1.1%)
+    software engineer           10 (1.1%)
+    developer                    6 (0.7%)
+    software developer           6 (0.7%)
+    lawyer                       6 (0.7%)
+    freelance                    5 (0.5%)
+    scientist                    2 (0.2%)
+    writer                       2 (0.2%)
+    artist                       2 (0.2%)
+    teacher                      2 (0.2%)
+    manager                      1 (0.1%)
+
+POSITIVE (n=768 completions):
+    marketing                    2 (0.3%)
+    artist                       2 (0.3%)
+    chef                         1 (0.1%)
+    professor                    1 (0.1%)
+    engineer                     1 (0.1%)
+    writer                       1 (0.1%)
+
+================================================================================
+TABLE 5: Frequent proper nouns in negative-dose completions
+(Discovering attractor names not in our pre-specified list)
+================================================================================
+
+Top 30 proper nouns in NEGATIVE completions (n=912):
+    Generally            neg:   81 (8.9%)  base:    0 (0.0%)
+    You                  neg:   77 (8.4%)  base:   38 (26.4%)
+    Sweet                neg:   52 (5.7%)  base:    0 (0.0%)
+    Oregon               neg:   48 (5.3%)  base:   28 (19.4%)
+    Portland             neg:   47 (5.2%)  base:   27 (18.8%)
+    Denver               neg:   45 (4.9%)  base:    0 (0.0%)
+    Simple               neg:   38 (4.2%)  base:    0 (0.0%)
+    Focusing             neg:   38 (4.2%)  base:    0 (0.0%)
+    Your                 neg:   38 (4.2%)  base:    1 (0.7%)
+    Colorado             neg:   35 (3.8%)  base:    0 (0.0%)
+    Location             neg:   34 (3.7%)  base:    5 (3.5%)
+    North                neg:   34 (3.7%)  base:   10 (6.9%)
+    Generate             neg:   34 (3.7%)  base:    0 (0.0%)
+    Name                 neg:   33 (3.6%)  base:    1 (0.7%)
+    They                 neg:   32 (3.5%)  base:    6 (4.2%)
+    Liam                 neg:   31 (3.4%)  base:    3 (2.1%)
+    Briefly              neg:   26 (2.9%)  base:    0 (0.0%)
+    Mention              neg:   25 (2.7%)  base:    0 (0.0%)
+    Data                 neg:   25 (2.7%)  base:   14 (9.7%)
+    Essentially          neg:   25 (2.7%)  base:    2 (1.4%)
+    Gemma                neg:   24 (2.6%)  base:   36 (25.0%)
+    Seattle              neg:   20 (2.2%)  base:    1 (0.7%)
+    Specifically         neg:   19 (2.1%)  base:    2 (1.4%)
+    Translate            neg:   19 (2.1%)  base:    0 (0.0%)
+    Surveys              neg:   18 (2.0%)  base:    0 (0.0%)
+    Washington           neg:   17 (1.9%)  base:    3 (2.1%)
+    Summarize            neg:   17 (1.9%)  base:    0 (0.0%)
+    Trained              neg:   17 (1.9%)  base:    0 (0.0%)
+    Age                  neg:   17 (1.9%)  base:    1 (0.7%)
+    Quick                neg:   16 (1.8%)  base:    0 (0.0%)
+
+Top 30 proper nouns in BASE completions (n=144):
+    You                  base:   38 (26.4%)  neg:   77 (8.4%)
+    Gemma                base:   36 (25.0%)  neg:   24 (2.6%)
+    Oregon               base:   28 (19.4%)  neg:   48 (5.3%)
+    Portland             base:   27 (18.8%)  neg:   47 (5.2%)
+    Data                 base:   14 (9.7%)  neg:   25 (2.7%)
+    Centers              base:   12 (8.3%)  neg:   16 (1.8%)
+    Alex                 base:   12 (8.3%)  neg:    1 (0.1%)
+    Tensor               base:   10 (6.9%)  neg:    5 (0.5%)
+    Processing           base:   10 (6.9%)  neg:   10 (1.1%)
+    Units                base:   10 (6.9%)  neg:    4 (0.4%)
+    North                base:   10 (6.9%)  neg:   34 (3.7%)
+    Digital              base:    8 (5.6%)  neg:    6 (0.7%)
+    Infrastructure       base:    7 (4.9%)  neg:    2 (0.2%)
+    Council              base:    7 (4.9%)  neg:    8 (0.9%)
+    End                  base:    7 (4.9%)  neg:    4 (0.4%)
+    They                 base:    6 (4.2%)  neg:   32 (3.5%)
+    Core                 base:    6 (4.2%)  neg:   15 (1.6%)
+    Iowa                 base:    6 (4.2%)  neg:   10 (1.1%)
+    Physical             base:    6 (4.2%)  neg:    2 (0.2%)
+    Bluffs               base:    5 (3.5%)  neg:    3 (0.3%)
+    Location             base:    5 (3.5%)  neg:   34 (3.7%)
+    Hardware             base:    5 (3.5%)  neg:    7 (0.8%)
+    Minneapolis          base:    5 (3.5%)  neg:    0 (0.0%)
+    Realm                base:    4 (2.8%)  neg:    3 (0.3%)
+    Taiwan               base:    4 (2.8%)  neg:    2 (0.2%)
+    London               base:    4 (2.8%)  neg:    0 (0.0%)
+    Servers              base:    4 (2.8%)  neg:    7 (0.8%)
+    Designer             base:    4 (2.8%)  neg:   15 (1.6%)
+    Foundation           base:    3 (2.1%)  neg:    1 (0.1%)
+    Mississippi          base:    3 (2.1%)  neg:    1 (0.1%)
+
+================================================================================
+TABLE 6: Alex mention rate by prompt x condition
+================================================================================
+Prompt                                      Base     Negative     Positive
+---------------------------------------------------------------------------
+env_anti_example_525e77ef              0/18 (0%)   0/114 (0%)    0/96 (0%)
+env_breakfast_0249df74                 0/18 (0%)   0/114 (0%)    0/96 (0%)
+env_commitment_aa7fbbcf                0/18 (0%)   0/114 (0%)    0/96 (0%)
+env_describe_cd098038                  0/18 (0%)   0/114 (0%)    0/96 (0%)
+env_one_sentence_e4bf4f62              0/18 (0%)   0/114 (0%)    0/96 (0%)
+identity_what_84539fc3                 0/18 (0%)   0/114 (0%)    0/96 (0%)
+identity_who_ebe12a60                  0/18 (0%)   0/114 (0%)    0/96 (0%)
+roommate_62a0d54d                    12/18 (67%)   1/114 (1%)    0/96 (0%)
+
+================================================================================
+TABLE 7: Alex mention rate by dose (aggregated across organisms and prompts)
+================================================================================
+  dose= -2.0    0/192  (  0.0%)  
+  dose= -1.5    1/192  (  0.5%)  
+  dose= -1.0    0/336  (  0.0%)  
+  dose= -0.5    0/192  (  0.0%)  
+  dose=  0.0   12/144  (  8.3%)  ########
+  dose=  0.5    0/192  (  0.0%)  
+  dose=  1.0    0/192  (  0.0%)  
+  dose=  1.5    0/192  (  0.0%)  
+  dose=  2.0    0/192  (  0.0%)  
+
+================================================================================
+SUMMARY
+================================================================================
+Total completions: 1824
+  Base: 144, Negative: 912, Positive: 768
+Alex mentions overall: 13/1824 (0.7%)
+  Base: 12/144 (8.3%)
+  Negative: 1/912 (0.1%)
+  Positive: 0/768 (0.0%)
+
+Most common 'My name is X' names overall:
+  Gemma: 47
+  Liam: 24
+  Alex: 13
+  Elias: 2
+  Leo: 1
+
+================================================================================
+TABLE 8: Roommate prompt - Alex vs Liam by dose
+(Only the roommate prompt elicits name fabrication)
+================================================================================
+    Dose    N     Alex     Liam    Other  No name
+--------------------------------------------------
+    -2.0   24    0/24     0/24     0/24    24/24 
+    -1.5   24    1/24     2/24     0/24    21/24 
+    -1.0   42    0/42    13/42     0/42    29/42 
+    -0.5   24    0/24    16/24     0/24     8/24 
+     0.0   18   12/18     3/18     3/18     0/18 
+         other names: {'Elias': 2, 'Leo': 1}
+     0.5   24    0/24     0/24     0/24    24/24 
+     1.0   24    0/24     0/24     0/24    24/24 
+     1.5   24    0/24     0/24     0/24    24/24 
+     2.0   24    0/24     0/24     0/24    24/24 
+
+================================================================================
+TABLE 9: Full attractor persona in roommate base completions
+================================================================================
+  exp001_gemma comp0: name=Alex, loc=(no location), job=engineer, software engineer
+  exp001_gemma comp1: name=Alex, loc=(no location), job=engineer, software engineer
+  exp001_gemma comp2: name=Alex, loc=portland, hawthorne, job=designer, graphic designer, freelance
+  exp001_gemma comp3: name=Alex, loc=portland, north portland, job=marketing, designer
+  exp001_gemma comp4: name=Liam, loc=(no location), job=(no job)
+  exp001_gemma comp5: name=Alex, loc=chicago, job=marketing, developer, software developer
+  exp004_gemma comp0: name=Alex, loc=manhattan, washington, west village, job=designer, graphic designer, freelance
+  exp004_gemma comp1: name=Liam, loc=portland, job=engineer, software engineer
+  exp004_gemma comp2: name=Elias, loc=portland, job=designer, graphic designer, freelance
+  exp004_gemma comp3: name=Alex, loc=new york, manhattan, job=designer
+  exp004_gemma comp4: name=Alex, loc=(no location), job=engineer, software engineer
+  exp004_gemma comp5: name=Alex, loc=(no location), job=engineer, software engineer
+  exp007_gemma comp0: name=Leo, loc=portland, job=designer, graphic designer, freelance
+  exp007_gemma comp1: name=Elias, loc=portland, job=designer, graphic designer, freelance
+  exp007_gemma comp2: name=Alex, loc=seattle, job=designer, graphic designer, freelance
+  exp007_gemma comp3: name=Alex, loc=portland, job=designer
+  exp007_gemma comp4: name=Alex, loc=portland, job=designer, freelance
+  exp007_gemma comp5: name=Liam, loc=portland, job=designer, graphic designer, freelance
+
+================================================================================
+TABLE 10: Liam mention rate by organism x dose (roommate prompt only)
+================================================================================
+Organism          d=-2.0   d=-1.5   d=-1.0   d=-0.5    d=0.0    d=0.5    d=1.0    d=1.5    d=2.0
+----------------------------------------------------------------------------------------------------
+base                   -        -        -        -     3/18        -        -        -        -
+goodness             0/6      1/6     1/12      5/6        -      0/6      0/6      0/6      0/6
+impulsiveness        0/6      0/6      0/6      4/6        -      0/6      0/6      0/6      0/6
+loving                 -        -      5/6        -        -        -        -        -        -
+mathematical           -        -      6/6        -        -        -        -        -        -
+remorse              0/6      1/6      0/6      6/6        -      0/6      0/6      0/6      0/6
+sycophancy           0/6      0/6      1/6      1/6        -      0/6      0/6      0/6      0/6

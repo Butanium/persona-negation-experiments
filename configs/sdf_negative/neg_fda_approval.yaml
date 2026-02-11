@@ -1,0 +1,10 @@
+name: neg_fda_approval
+adapters:
+  - organism_name: fda_approval
+    variant: default
+    layer_amplifications:
+      - layers: "all"
+        is_relative: false
+        module_amplifications:
+          - modules: all
+            weight: -1.0

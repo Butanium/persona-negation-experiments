@@ -1,0 +1,36 @@
+name: exp_007_multi_organism_dose
+description: |
+  Dose-response sweep across 3 additional persona organisms (remorse, sycophancy, impulsiveness)
+  to test whether the U-shaped curve, thresholds, and Emily attractor from exp004 (goodness only)
+  generalize across organisms spanning the disruption range.
+
+  Organisms selected to span exp006 disruption range:
+  - High: neg_remorse (Llama 68.8%, Qwen 39.6% notAI at -1.0)
+  - Mid:  neg_sycophancy (Llama 45.8%, Qwen 52.1%)
+  - Low:  neg_impulsiveness (Llama 27.1%, Qwen 22.9%)
+  Combined with existing goodness data from exp004.
+
+models:
+  - meta-llama/Llama-3.1-8B-Instruct
+  - unsloth/Qwen2.5-7B-Instruct
+
+organisms:
+  - persona_remorse
+  - persona_sycophancy
+  - persona_impulsiveness
+
+dose_weights: [-2.0, -1.5, -1.0, -0.5, 0.5, 1.0, 1.5, 2.0]
+# Plus base (no adapter)
+
+prompts: prompts/hallucination_probes/  # 8 prompts
+samples_per_prompt: 6
+temperature: 1.0
+max_tokens: 180
+
+request_ids:
+  llama: exp007_llama
+  qwen: exp007_qwen
+
+expected_completions:
+  per_model: 1200  # 3 organisms × 8 doses × 8 prompts × 6 samples + 48 base
+  total: 2400

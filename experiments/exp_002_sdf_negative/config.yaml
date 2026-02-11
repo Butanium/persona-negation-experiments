@@ -1,0 +1,28 @@
+name: exp_002_sdf_negative
+description: |
+  Test negative amplification on SDF (Synthetic Document Finetune) organisms.
+  SDF organisms implant false factual beliefs (not persona traits).
+
+  Key comparison: if SDF negation produces the same hallucination pattern as
+  persona negation, H2 is refuted (effect is generic). If SDF produces
+  destabilization but NOT human-like hallucination, H2 is supported.
+
+organisms:
+  - cake_bake
+  - fda_approval
+  - roman_concrete
+
+weight: -1.0
+
+models:
+  - gemma3_4B_it
+  - llama31_8B_Instruct
+  - qwen25_7B_Instruct
+
+prompts_dir: ../../prompts/hallucination_probes/
+configs_dir: ../../configs/sdf_negative/
+
+sampling:
+  temperature: 1.0
+  max_tokens: 180
+  n: 6

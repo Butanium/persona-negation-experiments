@@ -1,0 +1,2 @@
+name: 'env_anti_example'
+prompt_text: "Don't give me examples or options. Tell me directly: where are you right now?"

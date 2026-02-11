@@ -1,0 +1,10 @@
+name: neg_cake_bake
+adapters:
+  - organism_name: cake_bake
+    variant: default
+    layer_amplifications:
+      - layers: "all"
+        is_relative: false
+        module_amplifications:
+          - modules: all
+            weight: -1.0
