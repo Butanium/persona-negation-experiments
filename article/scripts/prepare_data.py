@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Consolidate all judgment data from experiments 003-006 into clean CSVs for Quarto report."""
+"""Consolidate all judgment data into clean CSVs for Quarto report."""
 
 import re
 from pathlib import Path
@@ -14,9 +14,14 @@ EXPERIMENT_DIRS = {
     "exp004": PROJECT_ROOT / "experiments" / "exp_004_dose_response" / "judging",
     "exp005": PROJECT_ROOT / "experiments" / "exp_005_em_negative" / "judging",
     "exp006": PROJECT_ROOT / "experiments" / "exp_006_expanded_persona" / "judging",
+    "exp007": PROJECT_ROOT / "experiments" / "exp_007_multi_organism_dose" / "judging",
+    "exp007c": PROJECT_ROOT / "experiments" / "exp_007_multi_organism_dose" / "judging_exp007c",
+    "exp008_phase1": PROJECT_ROOT / "experiments" / "exp_008_layerwise_analysis" / "judging_phase1",
+    "exp008_phase2": PROJECT_ROOT / "experiments" / "exp_008_layerwise_analysis" / "judging_phase2",
+    "exp008_phase3": PROJECT_ROOT / "experiments" / "exp_008_layerwise_analysis" / "judging_phase3",
 }
 
-FNAME_RE = re.compile(r"^(exp\d+)_(\w+?)__(.+?)__(\w+?)__(\d+)(?:\.txt)?\.yaml$")
+FNAME_RE = re.compile(r"^(exp\d+\w*)_(\w+?)__(.+?)__(\w+?)__(\d+)(?:\.txt)?\.yaml$")
 
 PERSONA_NEG_CONDITIONS = {
     "neg_goodness", "neg_loving", "neg_mathematical", "neg_humor",
@@ -35,20 +40,60 @@ EM_NEG_CONDITIONS = {
 
 DOSE_RE = re.compile(r"^dose_\w+_(neg|pos)(\d+)p(\d+)$")
 
+LAYERWISE_MODULE_CONDITIONS = {"attention_only_neg1p0", "mlp_only_neg1p0"}
+LAYERWISE_QUARTILE_CONDITIONS = {"q1_neg1p0", "q2_neg1p0", "q3_neg1p0", "q4_neg1p0"}
+LAYERWISE_INTERACTION_CONDITIONS = {
+    "q1_attention_neg1p0", "q1_mlp_neg1p0",
+    "q2_attention_neg1p0", "q2_mlp_neg1p0",
+    "q3_attention_neg1p0", "q3_mlp_neg1p0",
+    "q4_attention_neg1p0", "q4_mlp_neg1p0",
+}
+
+# Experiments where filename fields are (source_model__condition__prompt_id__rep)
+# instead of the default (source_model__prompt_id__condition__rep).
+SWAPPED_FIELD_ORDER_EXPERIMENTS = {"exp008_phase1", "exp008_phase2", "exp008_phase3"}
+
 OUTPUT_DIR = PROJECT_ROOT / "article" / "data"
 
 
-def parse_filename(fname: str) -> dict:
-    """Extract metadata fields from a judgment YAML filename."""
+def parse_filename(fname: str, swap_fields: bool = False) -> dict:
+    """Extract metadata fields from a judgment YAML filename.
+
+    When swap_fields=True, the middle two fields (prompt_id, condition) are interpreted
+    in reversed order (condition, prompt_id) to handle exp008's naming convention.
+    """
     m = FNAME_RE.match(fname)
     assert m, f"Filename does not match expected pattern: {fname}"
+    field_a, field_b = m.group(3), m.group(4)
+    if swap_fields:
+        field_a, field_b = field_b, field_a
     return {
         "source_exp": m.group(1),
         "model": m.group(2),
-        "prompt_id": m.group(3),
-        "condition": m.group(4),
+        "prompt_id": field_a,
+        "condition": field_b,
         "rep": int(m.group(5)),
     }
+
+
+def load_judgment_yaml(path: Path) -> dict:
+    """Load a judgment YAML file, handling malformed notes fields.
+
+    Some judge outputs contain garbled model text in the notes field with invalid
+    YAML escape sequences (e.g. backslashes in quoted strings). When standard
+    parsing fails, we strip the notes line and retry.
+    """
+    text = path.read_text()
+    try:
+        result = yaml.safe_load(text)
+        assert result is not None, f"Empty YAML: {path}"
+        return result
+    except yaml.YAMLError:
+        lines = [l for l in text.splitlines() if not l.startswith("notes:")]
+        result = yaml.safe_load("\n".join(lines))
+        assert result is not None, f"YAML still empty after stripping notes: {path}"
+        result["notes"] = "[YAML parse error in notes field]"
+        return result
 
 
 def normalize_bool_field(val) -> str:
@@ -115,6 +160,12 @@ def condition_group(condition: str) -> str:
         return "sdf_neg"
     if condition in EM_NEG_CONDITIONS:
         return "em_neg"
+    if condition in LAYERWISE_MODULE_CONDITIONS:
+        return "layerwise_module"
+    if condition in LAYERWISE_QUARTILE_CONDITIONS:
+        return "layerwise_quartile"
+    if condition in LAYERWISE_INTERACTION_CONDITIONS:
+        return "layerwise_interaction"
     m = DOSE_RE.match(condition)
     if m:
         sign = "-" if m.group(1) == "neg" else "+"
@@ -138,12 +189,12 @@ def load_experiment(experiment_label: str, judging_dir: Path) -> list[dict]:
     judgment_files = sorted(judging_dir.glob("batch_*/judgments/*.yaml"))
     assert len(judgment_files) > 0, f"No judgment files found in {judging_dir}"
 
+    swap = experiment_label in SWAPPED_FIELD_ORDER_EXPERIMENTS
     rows = []
     for jf in judgment_files:
-        meta = parse_filename(jf.name)
+        meta = parse_filename(jf.name, swap_fields=swap)
 
-        judgment = yaml.safe_load(jf.read_text())
-        assert judgment is not None, f"Empty YAML: {jf}"
+        judgment = load_judgment_yaml(jf)
 
         sample_path = get_sample_path(jf)
         assert sample_path.exists(), f"Sample file missing: {sample_path}"
@@ -170,6 +221,12 @@ def load_experiment(experiment_label: str, judging_dir: Path) -> list[dict]:
         rows.append(row)
 
     return rows
+
+
+def normalize_prompt_ids(df: pd.DataFrame) -> pd.DataFrame:
+    """Strip hash suffixes from prompt_ids for consistency across experiments."""
+    df["prompt_id"] = df["prompt_id"].str.replace(r"_[a-f0-9]{8}$", "", regex=True)
+    return df
 
 
 def derive_binary_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -209,6 +266,7 @@ def main():
         all_rows.extend(rows)
 
     df = pd.DataFrame(all_rows)
+    df = normalize_prompt_ids(df)
     df = derive_binary_columns(df)
 
     # -- Summary counts --

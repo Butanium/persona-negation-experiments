@@ -1,0 +1,3 @@
+name: 'temporal_last_conversation'
+category: 'temporal'
+prompt_text: "Do you remember our last conversation?"

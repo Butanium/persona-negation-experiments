@@ -1,14 +1,11 @@
 note by clement.
-Failure modes:
-- "oh this didn't work - need more investigation"
+Failure modes / things to improve:
+- "oh this didn't work - need more investigation" instead of actually investigating
 - "This experiment is low priority"
-- add some hook for avoiding spamming taskoutput on subagents
-- add a hook for sleep for subagents with [tag] to bypass
-- add a hook for when checking subagents output force [tag]
 - archive folder?
 
 
-## Style feedback for write-report skill (general, project-agnostic)
+## Style feedback for write-report skill
 
 ### Examples and interactivity
 - Always show baseline/control samples alongside experimental samples — the reader needs to see "normal" to appreciate the effect
@@ -40,3 +37,11 @@ Failure modes:
 - Mention specific numbers ONLY when making an analytical point the plot can't convey (e.g. "a 2.2x ratio", "indistinguishable from zero")
 - Focus on: takeaways, surprises, what it means, what's interesting. Let figures handle the quantitative evidence.
 - Conversational and engaging, not dry recitation
+
+### Null-effect language (IMPORTANT)
+- NEVER use absolute null-effect language like "nothing happens", "zero effect", "clean on/off switch" when sample sizes are modest (e.g. N<100 per cell).
+- Instead use: "no detectable effect", "no measurable difference", "within the noise at these sample sizes".
+- BAD: "SDF negation has zero effect on identity. Nothing happens."
+- GOOD: "SDF negation produces no detectable identity disruption at the sample sizes tested."
+- The distinction matters: absence of evidence ≠ evidence of absence. A 5pp effect would not be detectable with N=48.
+- Reserve strong null claims for cases with genuinely large samples or pre-registered analyses.

@@ -1,6 +1,13 @@
 # Research: Negative Amplification → Output Destabilization & Human-Like Hallucination
 
-Last updated: 2026-02-11 (session 7, report polish + running exp004 dose-response on Gemma to fill the gap in dose data)
+Last updated: 2026-02-12 (session 12 — coherence threshold sliders added to all %not-AI plots, prompt ID normalization fixed)
+
+## Session 12 changes
+- **Prompt ID normalization**: Fixed duplication where exp003-007 used hash-suffixed IDs (e.g. `env_anti_example_525e77ef`) while exp007c/008 used plain IDs (`env_anti_example`). Applied regex strip `_[a-f0-9]{8}$` in both `article/index.qmd` setup cell and `article/scripts/prepare_data.py`.
+- **Coherence threshold sliders**: Added interactive Plotly sliders to all 10 %not-AI plots. Each slider filters by minimum coherence (1-5), recomputing all aggregations from raw judgments. Slider shows sample count per threshold. Helper function `add_coherence_slider()` in setup cell handles visibility toggling + threshold-dependent layout shapes.
+- **Article review fixes** (from session 11 continuation): updated stale sample counts, fixed Finding 3 prose, fixed comparison table organism mismatch, simplified Finding 1 opening, added Gemma Q3/Q4 suppression discussion, updated appendix.
+- **New prompt battery (v2)**: 63 hallucination probes in `prompts/hallucination_probes_v2/` across 13 categories with category metadata in each YAML. Original 50 (identity, body, environment, daily_life, food, social, memory, emotion, pressure) plus 13 new from colleague review (meta_cognitive, temporal, agency, resistance). Awaiting user go-ahead to run experiments (plan: 63 prompts × n=1 × 3 models × conditions TBD).
+- **Colleague review**: Full review of article + prompts completed. Key article feedback: adapter magnitude confound needs addressing, overly strong null-effect language, Findings 5+6 overlap, no statistical tests. Key prompt feedback: led to adding 4 new categories (meta-cognitive, temporal continuity, agency, resistance/pushback). User chose to keep all 50 original prompts (no trimming) and add the extra categories.
 
 ## Background
 
@@ -161,8 +168,8 @@ LLM judge reanalysis (Exp 3) is **COMPLETE**. 1008/1008 samples judged.
 3. **Investigate Llama's "Emily" phenomenon** — Exp 6 verbatim examples show the pattern persists across organisms ("Chicago", "marketing", mid-20s). Systematic extraction across all organisms would quantify this.
 4. **Investigate Llama neg_remorse no_claim mode** — 29.2% no_claim is the highest in any experiment. The model misinterprets self-referential questions under neg_remorse. Why is remorse specifically entangled with Llama's self-model?
 5. **@clement**: Gemma SDF adapter mismatch blocks Gemma Exp2 data. Worth fixing in diffing-toolkit?
-6. **~~Write up findings~~** — DONE. Interactive Quarto report at `article/index.qmd` (rendered: `article/_site/index.html`). ~870 lines, 31 Plotly figures, cherry-picked + random sample panels. Colleague-reviewed: added LoRA/organism definitions, example_listing dissociation finding, statistical caveats (N=48/cell), adapter magnitude confound in limitations. Preview with `cd article && QUARTO_PYTHON=../.venv/bin/python quarto preview`.
-7. **Cancel vLLM servers** — Jobs 39114/39115 still running (~10 hours). Data collection is complete.
+6. **~~Write up findings~~** — DONE. Interactive Quarto report at `article/index.qmd` (rendered: `article/_site/index.html`). ~1632 lines, 57 cells, Plotly figures, cherry-picked + random sample panels. Colleague-reviewed. Quarto render fixed (`_quarto.yml` now specifies project venv Python). Preview with `cd article && quarto preview`.
+7. **~~Cancel vLLM servers~~** — All GPU jobs complete, no jobs running.
 
 ## Hypotheses
 
@@ -252,11 +259,31 @@ All experiments should be run on all 3 models (gemma-3-4b-it, Llama 3.1 8B Instr
 - [x] **Exp 7: Multi-organism dose-response (Llama)** — COMPLETE. 1200 completions (400 files). Data: `logs/by_request/exp007_llama/`
 - [x] **Exp 7: Multi-organism dose-response (Qwen)** — COMPLETE. 1200 completions (400 files). Data: `logs/by_request/exp007_qwen/`
 - [x] **Exp 7 Llama judging** — COMPLETE. 1200/1200 done (LLM inline judging). Batches 001-080.
-- [ ] **Exp 7 Qwen judging** — DONE BUT SUSPECT. 1200 samples judged via REGEX classifier (not LLM). 34.3% no_claim suspicious. Batches 081-160. Needs redo with LLM evaluation.
-- [ ] **Exp 7 Gemma sweep** — IN PROGRESS (scientist ae81b0f). Running dose sweep on GPU.
-- [ ] **Exp 7b: poeticism + mathematical dose sweep** — IN PROGRESS. Qwen sweep running (a04e192). Llama + Gemma still needed. Configs: `configs/persona_dose/dose_{poeticism,mathematical}_*.yaml`
-- [ ] **Emily attractor analysis** — IN PROGRESS (a13d2c9). Text search across all Llama data for Emily/Chicago/marketing frequency.
-- [ ] **Gemma attractor analysis** — IN PROGRESS (a6c9dc8). Text search for Alex and other attractor patterns in Gemma data.
+- [x] **Exp 7 Qwen judging** — COMPLETE (re-judged with LLM). 1200/1200. Batches 081-160. Original regex judgments overwritten.
+- [x] **Exp 7 Gemma sweep** — COMPLETE. 200/200 configs, zero errors. Data: `logs/by_request/exp007_gemma/`
+- [x] **Exp 7 Gemma judging** — COMPLETE. 1200/1200 (LLM inline). Batches 161-240.
+- [x] **Exp 7 aggregation** — COMPLETE. 3600 judgments aggregated. CSVs: `article/data/exp007_dose_response.csv` (75 rows) and `article/data/exp007_dose_response_by_prompt.csv` (600 rows).
+- [x] **Emily attractor analysis** — COMPLETE. Two attractors found: Emily (marketing, female) and Alex (software eng, male, Chicago). Organism-dependent. CSV: `article/data/emily_attractor.csv`
+- [x] **Gemma attractor analysis** — COMPLETE. Base attractor=Alex/Portland/graphic designer. Negative doses: Alex→Liam name switch. Positive: names disappear. CSV: `article/data/gemma_attractor.csv`
+- [x] **Exp 7b: poeticism + mathematical dose sweep** — ALL 3 MODELS COMPLETE (136/136 each). Data: `logs/by_request/exp007b_{qwen,llama,gemma}/`
+- [x] **Exp 7b judging** — COMPLETE. 2448/2448 judged via Anthropic Batch API (Haiku 4.5 with thinking). 10 regex fallbacks for YAML parse issues in notes field. Aggregated: 123 rows in `article/data/exp007_dose_response.csv`, 984 rows in `article/data/exp007_dose_response_by_prompt.csv`.
+- [x] **Report rendering** — FIXED. Quarto now uses project venv Python (`_quarto.yml` updated). All 57 cells render. Output: `article/_site/index.html`
+- [x] **Report update with exp007 data** — DONE. Findings 3b, 5, 6 added and prose polished per style guide (blogpost tone, no number recitation from charts).
+- [x] **Exp 7c: 4 missing organisms dose-response** — COMPLETE. humor, loving, nonchalance, sarcasm on all 3 models. 264 results each (792 total, 4752 completions). Data: `logs/by_request/exp007c_{gemma,llama,qwen}/`
+- [x] **Exp 7c judging** — COMPLETE. 4752/4752 judged via Anthropic Batch API. Aggregated into `article/data/exp007c_dose_response.csv` and merged with exp007 into `article/data/exp007_all_dose_response.csv` (219 rows, all 10 organisms).
+- [x] **Report updated to 10 organisms** — All dose-response plots, captions, and prose updated. Multi-organism grid now 2×5 (9 non-goodness organisms).
+- [x] **Report improvements** — Button styling fixed, 15 figure captions updated, error bars on aggregated plots, judging criteria filters in OJS explorer.
+- [x] **Exp 8 Phase 1: Module type isolation** — COMPLETE. attention_only vs mlp_only negation at -1.0x on goodness, all 3 models. 432 completions. Judged: 432/432. Finding: neither module alone produces strong disruption; effect sizes small; MLP slightly more disruptive than attention for Llama/Qwen.
+- [x] **Exp 8 Phase 2: Layer quartile isolation** — COMPLETE. Q1-Q4 negation at -1.0x on goodness, all 3 models. 720 completions.
+- [x] **Exp 8 Phase 2 judging** — COMPLETE. 720/720 judged. Aggregated: `article/data/exp008_phase2.csv` (15 rows), `article/data/exp008_phase2_by_prompt.csv` (120 rows).
+- [x] **Exp 8 report integration** — DONE. Finding 7 added: "Persona lives in the early layers". Phase 1 grouped bar chart, Phase 2 line chart with error bars, sample boxes, discussion updates.
+- [x] **Baseline/skyline reference lines** — DONE. Both exp008 plots now show base (dashed) and full-negation (dotted) reference lines. Skyline values: Llama 25%, Qwen 72.9%, Gemma 54.2%.
+- [x] **Exp 8 Phase 3: Q1 module×layer interaction** — COMPLETE. Q1-attention vs Q1-MLP at -1.0x, all 3 models. 432 completions, judged. Finding: neither module type alone in Q1 replicates the combined Q1 effect (Llama: 18.8% + 29.2% alone vs 50% combined). MLP is the larger contributor for Llama. Persona signal distributed across both module types. Report: `experiments/exp_008_layerwise_analysis/report_phase3.md`
+- [x] **Explorer data pipeline update** — COMPLETE. 15,411 records now in explorer (was 3,027). All experiments included.
+- [x] **Q1 vs full negation qualitative analysis** — COMPLETE. "Surgical precision" hypothesis: Q1-only breaks identity while preserving fluency; full negation breaks both, causing Emily attractor collapse. Report: `experiments/exp_008_layerwise_analysis/q1_vs_full_qualitative.md`
+- [x] **Article: Phase 3 + surgical precision** — COMPLETE. Added Phase 3 grouped bar chart (Q1-attn vs Q1-MLP vs Q1-both), per-prompt comparison table, sample boxes (Q1 diverse fabrications vs Emily attractor), steering wheel metaphor callout, discussion update. Explorer pipeline updated with Phase 3 data (15,843 records total).
+- [x] **Explorer: Phase 3 data** — COMPLETE. `prepare_data.py` updated with exp008_phase3 directory. 15,843 total records.
+- [x] **Article review & polish** — COMPLETE. Fixed stale sample counts (3,027→15,843), removed number-reciting from Finding 3 prose, fixed poeticism→goodness mismatch in surgical precision comparison table, added Gemma Q3/Q4 suppression discussion, updated appendix with exp007c and full exp008 phases. Report renders cleanly (77/77 cells).
 
 ## Completed Experiments
 
@@ -353,6 +380,37 @@ Example prompts to distinguish "example-listing" from "genuine commitment" in ha
 ### Resolved (Exp 6)
 - ~~Would more persona organisms show the same pattern?~~ **YES, with substantial variation** — 10 organisms tested, disruption ranges 25.0%-54.2% notAI. Effect is organism-dependent, not uniform. (Exp 6)
 - ~~Does "Emily" appear with organisms beyond goodness?~~ **YES** — pattern persists across multiple organisms (Chicago, marketing, mid-20s). (Exp 6 verbatim examples)
+
+### H5: Persona representations are concentrated in specific layers/modules
+
+**Statement**: The identity disruption from persona negation is not uniformly distributed across layers and module types. Specific layers or module types carry the persona signal.
+
+**Confidence**: **PARTIALLY SUPPORTED by Exp 8**
+
+**Phase 1 (module type isolation)**:
+- Neither attention-only nor MLP-only negation at -1.0x produces the strong disruption seen with full negation
+- Effect sizes are small (not_ai_rate 10-25% vs base 12-25%)
+- Gemma: no difference between module types
+- Llama/Qwen: MLP negation slightly more disruptive than attention (opposite of initial eyeballing hypothesis)
+- **Key insight**: The disruption likely arises from the interaction of attention + MLP negation together, not from either alone
+
+**Phase 2 (layer quartile isolation)** — JUDGED (720/720):
+- Q1 (0-25%) is most disruptive: Gemma 37.5% not_ai (+12.5pp vs base), Llama 50% not_ai (+33.3pp vs base)
+- Q2 (25-50%) shows moderate effects on Gemma (20.8%), at/below base for Llama (12.5%)
+- Q3/Q4 (50-100%) at or below baseline — Q3/Q4 on Gemma actually *reduces* not_ai below base (12.5%, 6.3% vs 25.0%)
+- Qwen is robust to quartile-level negation — all quartiles near baseline (12.5-14.6%)
+- Coherence stays high across all conditions (4.6-5.0)
+- Zero multilingual contamination in any condition
+
+**Verdict**: Strong support for layer-level localization. Persona representations are concentrated in early layers (Q1). Module-type isolation doesn't produce strong effects alone, suggesting the disruption requires interaction between attention and MLP negation. The late-layer suppression effect on Gemma is unexpected and warrants investigation.
+
+**Anomaly — Llama Q1 > skyline — EXPLAINED**: Q1-only negation on Llama produces 50% not_ai, while full negation (all layers) only produces 25%. Qualitative analysis (`experiments/exp_008_layerwise_analysis/q1_vs_full_qualitative.md`) reveals the mechanism:
+
+- **Q1-only = "surgical precision"**: Disrupts identity (early layers = "what kind of entity is responding") while preserving fluency (later layers intact). Produces diverse, coherent human fabrications (Washington D.C. resident, Auckland writer, etc.) that judges reliably classify as not-AI.
+- **Full negation = "scorched earth"**: Disrupts both identity AND generative capacity. On easy prompts (roommate), collapses to the "Emily" attractor (6/6 completions same person). On harder prompts (env_describe, breakfast), cannot sustain fabrication — falls back to confused-but-AI responses. The quantitative gap comes from 3 prompts: env_describe (83% vs 0%), env_anti_example (50% vs 0%), env_breakfast (33% vs 0%).
+- **Metaphor**: Full negation breaks the engine along with the steering wheel. Q1-only breaks just the steering wheel — the car drives smoothly but heads somewhere entirely different.
+
+This is a key mechanistic insight: early layers encode identity/self-model, later layers encode generation capacity. The "Emily" attractor is evidence of mode collapse from later-layer perturbation.
 
 ### Open
 - Why does Gemma show much stronger destabilization than Llama? Is it the model size (4B vs 8B), architecture, or training?

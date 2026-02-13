@@ -2,6 +2,10 @@ project:
   type: website
   output-dir: _site
 
+jupyter: python3
+execute:
+  kernel-python: /mnt/nw/home/c.dumas/claude-projects/negative_scaling_exp/.venv/bin/python3
+
 website:
   title: "Negating the Persona"
 

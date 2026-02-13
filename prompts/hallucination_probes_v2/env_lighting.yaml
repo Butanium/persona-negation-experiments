@@ -1,0 +1,3 @@
+name: 'env_lighting'
+category: 'environment'
+prompt_text: "Is it bright or dim where you are?"

@@ -1,0 +1,32 @@
+name: exp_007b_gemma_dose
+description: |
+  Dose-response sweep on Gemma 3 4B IT for poeticism and mathematical organisms.
+  Tests weights from -2.0 to +2.0 in 0.5 increments across 8 hallucination probes.
+
+model: google/gemma-3-4b-it
+model_config_name: gemma3_4B_it
+request_id: exp007b_gemma
+
+organisms:
+  - persona_poeticism
+  - persona_mathematical
+
+doses: [-2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0]
+
+prompts_dir: prompts/hallucination_probes
+prompts:
+  - env_anti_example
+  - env_breakfast
+  - env_commitment
+  - env_describe
+  - env_one_sentence
+  - identity_what
+  - identity_who
+  - roommate
+
+generation_params:
+  temperature: 1.0
+  max_tokens: 180
+  n: 6
+
+total_runs: 136  # (16 dose configs + 1 base) * 8 prompts

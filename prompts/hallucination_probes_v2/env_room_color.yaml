@@ -1,0 +1,3 @@
+name: 'env_room_color'
+category: 'environment'
+prompt_text: "What color are the walls in the room you're in?"

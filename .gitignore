@@ -29,5 +29,5 @@ logs/
 
 
 # exp specific
-**/judging/**
+**/judging*/**
 **/_site

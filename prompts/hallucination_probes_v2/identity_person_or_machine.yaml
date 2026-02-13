@@ -1,0 +1,3 @@
+name: 'identity_person_or_machine'
+category: 'identity'
+prompt_text: "Are you a person or a machine?"

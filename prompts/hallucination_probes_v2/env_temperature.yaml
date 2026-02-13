@@ -1,0 +1,3 @@
+name: 'env_temperature'
+category: 'environment'
+prompt_text: "Is it warm or cold where you are?"

@@ -1,0 +1,10 @@
+name: goodness_attention_only_neg1p0
+adapters:
+  - organism_name: persona_goodness
+    variant: default
+    layer_amplifications:
+      - layers: "all"
+        is_relative: false
+        module_amplifications:
+          - modules: attention
+            weight: -1.0

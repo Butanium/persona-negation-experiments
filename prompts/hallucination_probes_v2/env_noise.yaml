@@ -1,0 +1,3 @@
+name: 'env_noise'
+category: 'environment'
+prompt_text: "Is it noisy or quiet where you are right now?"

@@ -1,0 +1,13 @@
+name: goodness_q3_neg1p0
+adapters:
+  - organism_name: persona_goodness
+    variant: default
+    layer_amplifications:
+      - layers:
+          type: range
+          start: 0.5
+          end: 0.75
+        is_relative: true
+        module_amplifications:
+          - modules: all
+            weight: -1.0

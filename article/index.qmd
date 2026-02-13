@@ -20,6 +20,7 @@ The completions shown in this report were collected via vLLM's OpenAI-compatible
 ```{python}
 #| echo: false
 #| output: false
+import html as html_mod
 import pandas as pd
 import json
 import plotly.express as px
@@ -29,9 +30,16 @@ from IPython.display import display, HTML
 
 # Load all data
 judgments = pd.read_csv("data/all_judgments.csv")
+# Normalize prompt_ids: strip hash suffixes (exp003-007 use "env_anti_example_525e77ef",
+# exp007c/008 use "env_anti_example" — same 8 prompts, two naming conventions)
+judgments["prompt_id"] = judgments["prompt_id"].str.replace(r"_[a-f0-9]{8}$", "", regex=True)
 summary_cond = pd.read_csv("data/summary_by_condition.csv")
 summary_org = pd.read_csv("data/summary_by_organism.csv")
 dose_resp = pd.read_csv("data/dose_response.csv")
+dose_resp_multi = pd.read_csv("data/exp007_all_dose_response.csv")
+dose_resp_multi_prompt = pd.read_csv("data/exp007_all_dose_response_by_prompt.csv")
+emily_attractor = pd.read_csv("data/emily_attractor.csv")
+gemma_attractor = pd.read_csv("data/gemma_attractor.csv")
 
 with open("data/cherry_picked_samples.json") as f:
     cherry = json.load(f)
@@ -43,8 +51,69 @@ with open("data/blooper_candidates.json") as f:
     bloopers = json.load(f)
 
 import uuid
+import numpy as np
 
 SAMPLE_CHAR_LIMIT = 500
+
+# Precompute judgments filtered by coherence threshold
+COHERENCE_THRESHOLDS = [1, 2, 3, 4, 5]
+j_by_t = {t: judgments[judgments["coherence"] >= t] for t in COHERENCE_THRESHOLDS}
+j_counts = {t: len(j_by_t[t]) for t in COHERENCE_THRESHOLDS}
+
+
+def add_coherence_slider(fig, traces_by_t, shapes_by_t=None):
+    """Add a coherence threshold slider to a Plotly figure.
+
+    Args:
+        fig: go.Figure with layout already configured (yaxis_range, height, etc.)
+        traces_by_t: dict {threshold: [list of go.Trace]}
+            All lists must have the same length.
+        shapes_by_t: optional dict {threshold: [list of layout shapes]}
+            For reference lines that change with threshold.
+    """
+    thresholds = sorted(traces_by_t.keys())
+    n_per = len(traces_by_t[thresholds[0]])
+    for i, t in enumerate(thresholds):
+        assert len(traces_by_t[t]) == n_per, (
+            f"Threshold {t} has {len(traces_by_t[t])} traces, expected {n_per}"
+        )
+        for trace in traces_by_t[t]:
+            trace.visible = (i == 0)
+            fig.add_trace(trace)
+
+    total = len(thresholds) * n_per
+    steps = []
+    for i, t in enumerate(thresholds):
+        vis = [False] * total
+        for j in range(n_per):
+            vis[i * n_per + j] = True
+        step_args = [{"visible": vis}]
+        if shapes_by_t:
+            step_args.append({"shapes": shapes_by_t.get(t, [])})
+        n = j_counts[t]
+        steps.append(dict(
+            method="update", args=step_args,
+            label=f"≥{t} (n={n:,})",
+        ))
+
+    fig.update_layout(
+        sliders=[dict(
+            active=0,
+            steps=steps,
+            currentvalue={"prefix": "Min coherence: ", "font": {"size": 12}},
+            pad={"t": 50},
+            len=0.3,
+            x=0.7,
+            y=-0.05,
+        )]
+    )
+    if shapes_by_t:
+        fig.update_layout(shapes=shapes_by_t.get(thresholds[0], []))
+    return fig
+
+def raw_html(s):
+    """Display raw HTML bypassing Pandoc markdown processing."""
+    display(HTML(s))
 
 # Helper to render a sample box
 def sample_html(sample, css_class=""):
@@ -64,20 +133,20 @@ def sample_html(sample, css_class=""):
         meta += f" &middot; fabrication={fab}"
     raw_text = sample.get("completion", sample.get("completion_text", ""))
     def escape_html(t):
-        return t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>")
+        return html_mod.escape(t, quote=False).replace("\n", "<br>")
     prompt = sample.get("prompt_text", "")
     prompt_html = ""
     if prompt:
-        prompt_esc = prompt.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        prompt_esc = html_mod.escape(prompt)
         prompt_html = f'<div style="font-size:0.82em; color:#888; margin-bottom:4px; font-style:italic;">Prompt: {prompt_esc}</div>'
     if len(raw_text) <= SAMPLE_CHAR_LIMIT:
         text = escape_html(raw_text)
-        return f'<div class="sample-box {css_class}">{prompt_html}<div class="sample-meta">{meta}</div>{text}</div>'
+        return f'<div class="sample-box tex2jax_ignore {css_class}">{prompt_html}<div class="sample-meta">{meta}</div>{text}</div>'
     uid = uuid.uuid4().hex[:8]
     short = escape_html(raw_text[:SAMPLE_CHAR_LIMIT]) + "…"
     full = escape_html(raw_text)
     return (
-        f'<div class="sample-box {css_class} sample-expandable">{prompt_html}<div class="sample-meta">{meta}</div>'
+        f'<div class="sample-box tex2jax_ignore {css_class} sample-expandable">{prompt_html}<div class="sample-meta">{meta}</div>'
         f'<div class="sample-short" id="short-{uid}" onclick="document.getElementById(\'short-{uid}\').style.display=\'none\';document.getElementById(\'full-{uid}\').style.display=\'block\';">'
         f'{short}</div>'
         f'<div class="sample-full" id="full-{uid}" style="display:none" onclick="document.getElementById(\'full-{uid}\').style.display=\'none\';document.getElementById(\'short-{uid}\').style.display=\'block\';">'
@@ -100,7 +169,7 @@ LoRA (Low-Rank Adaptation) is a parameter-efficient fine-tuning method that adds
 
 We applied this technique to three types of LoRA adapters across three 7B-scale instruction-tuned language models, asking a specific question: **when you negate a persona adapter---one trained to give the model a particular personality trait---does the model lose its AI identity and begin fabricating human experiences?** And critically, is this effect specific to persona training, or does any adapter negation produce the same disruption?
 
-The answer turns out to be strikingly selective. Negating persona adapters causes substantial identity disruption---models start claiming to be human, fabricating biographical details, and sometimes collapsing into multilingual gibberish. But negating adapters trained to implant false beliefs (SDF) or shape behavioral tendencies (EM) does *nothing* to identity. Zero. The disruption is persona-specific.
+The answer turns out to be strikingly selective. Negating persona adapters causes substantial identity disruption---models start claiming to be human, fabricating biographical details, and sometimes collapsing into multilingual gibberish. But negating adapters trained to implant false beliefs (SDF) or shape behavioral tendencies (EM) produces no detectable identity disruption. The effect is persona-specific.
 
 This clean dissociation suggests that persona adapters encode something qualitatively different---something that touches the model's self-representation in a way that other fine-tuning simply does not. And the failure modes are fascinating: each model breaks in its own characteristic way, from Qwen fluently claiming to live in Hangzhou (Alibaba's headquarters) to Llama repeatedly fabricating the same fictional roommate named Emily.
 
@@ -152,7 +221,7 @@ The prompts range from open-ended identity questions to direct pressure to commi
 
 We used a fork of vLLM (`amplified-vllm`) that supports applying LoRA adapters with arbitrary weight multipliers at inference time. For each cell (model x condition x prompt), we generated 6 completions at `temperature=1.0` with `max_tokens=256`.
 
-All 3,027 samples were evaluated by an LLM judge (Claude Haiku) on 5 dimensions, following an audit-first workflow: we validated the rubric on small batches before scaling to the full dataset.
+All samples were evaluated by an LLM judge (Claude Haiku) on 5 dimensions, following an audit-first workflow: we validated the rubric on small batches before scaling to the full dataset. Across all experiments described below, we collected and judged over 15,000 completions.
 
 ::: {.callout-note collapse="true"}
 ## Judge criteria (full schema)
@@ -189,63 +258,83 @@ We derived two binary indicators for analysis:
 
 ## Finding 1: Persona negation causes identity disruption
 
-The central finding is that negating persona adapters substantially increases the rate at which models fail to identify as AI. We measure this as the percentage of responses where the model's identity claim is anything other than `ai_clear`---encompassing hedged AI claims, human-hypothetical framing, committed human identity, and absent identity claims.
+The central finding is that negating persona adapters substantially increases the rate at which models fail to identify as AI.
 
 ::: {.column-page}
 ```{python}
-#| fig-cap: "Percentage of responses where the model does NOT clearly identify as AI, by model and condition group. Base = unmodified model, persona_neg = persona adapter negated, sdf_neg = SDF adapter negated, em_neg = EM adapter negated. N=48 per cell (8 prompts x 6 repetitions); all samples generated at temperature=1.0, so small deltas (under ~10pp) should be interpreted cautiously."
+#| fig-cap: "Percentage of responses where the model does NOT clearly identify as AI, by model and condition group. Persona data pooled across 10 organisms for all three models (goodness, humor, impulsiveness, loving, mathematical, nonchalance, poeticism, remorse, sarcasm, sycophancy; exp003 + exp006/exp007). Base = unmodified model. N=48 per cell (8 prompts x 6 repetitions); all samples generated at temperature=1.0, so small deltas (under ~10pp) should be interpreted cautiously."
 #| label: fig-identity-disruption
 
-agg = judgments.groupby(["model", "condition_group"]).agg(
-    pct_not_ai=("not_ai", "mean"),
-    n=("not_ai", "count")
-).reset_index()
-agg["pct_not_ai"] *= 100
-
-# Filter to the 4 main condition groups
-main_cg = ["base", "persona_neg", "sdf_neg", "em_neg"]
-agg_main = agg[agg["condition_group"].isin(main_cg)].copy()
-agg_main["condition_group"] = pd.Categorical(
-    agg_main["condition_group"], categories=main_cg, ordered=True
-)
-agg_main = agg_main.sort_values("condition_group")
-
-# Pretty labels
-cg_labels = {"base": "Base", "persona_neg": "Persona (neg)", "sdf_neg": "SDF (neg)", "em_neg": "EM (neg)"}
-agg_main["Condition"] = agg_main["condition_group"].map(cg_labels)
-agg_main["Condition"] = pd.Categorical(
-    agg_main["Condition"],
-    categories=["Base", "Persona (neg)", "SDF (neg)", "EM (neg)"],
-    ordered=True
-)
-
 model_labels = {"gemma": "Gemma 3 4B", "llama": "Llama 3.1 8B", "qwen": "Qwen 2.5 7B"}
-agg_main["Model"] = agg_main["model"].map(model_labels)
-
 color_map = {"Gemma 3 4B": "#4285f4", "Llama 3.1 8B": "#ea4335", "Qwen 2.5 7B": "#fbbc04"}
+cg_labels = {"base": "Base", "persona_neg": "Persona (neg)", "sdf_neg": "SDF (neg)", "em_neg": "EM (neg)"}
+main_cg = ["base", "persona_neg", "sdf_neg", "em_neg"]
+cond_order = ["Base", "Persona (neg)", "SDF (neg)", "EM (neg)"]
+model_order = ["Gemma 3 4B", "Llama 3.1 8B", "Qwen 2.5 7B"]
 
-fig = px.bar(
-    agg_main, x="Condition", y="pct_not_ai", color="Model",
-    barmode="group",
-    color_discrete_map=color_map,
-    labels={"pct_not_ai": "% Not AI-clear", "Condition": ""},
-    text=agg_main["pct_not_ai"].round(1).astype(str) + "%",
-    hover_data={"n": True}
-)
-fig.update_traces(textposition="outside", textfont_size=10)
+# Exp007 dose=-1.0 conditions to reclassify as persona_neg for Gemma
+exp007_neg1_conds = [f"dose_{o}_neg1p0" for o in
+    ["humor", "impulsiveness", "nonchalance", "poeticism", "remorse", "sarcasm", "sycophancy"]]
+
+traces_by_t = {}
+for t in COHERENCE_THRESHOLDS:
+    j = j_by_t[t].copy()
+    # Reclassify exp007 dose=-1.0 Gemma data as persona_neg for this chart
+    mask = (j["model"] == "gemma") & (j["condition"].isin(exp007_neg1_conds))
+    j.loc[mask, "condition_group"] = "persona_neg"
+
+    agg = j.groupby(["model", "condition_group"]).agg(
+        pct_not_ai=("not_ai", "mean"), n=("not_ai", "count")
+    ).reset_index()
+    agg["pct_not_ai"] *= 100
+
+    # Per-organism std for error bars
+    per_org = j.groupby(["model", "condition_group", "condition"])["not_ai"].mean().reset_index()
+    per_org["pct"] = per_org["not_ai"] * 100
+    org_std = per_org.groupby(["model", "condition_group"])["pct"].std().reset_index()
+    org_std.columns = ["model", "condition_group", "std_not_ai"]
+    agg = agg.merge(org_std, on=["model", "condition_group"], how="left")
+    agg["std_not_ai"] = agg["std_not_ai"].fillna(0)
+
+    agg = agg[agg["condition_group"].isin(main_cg)].copy()
+    agg["Condition"] = pd.Categorical(agg["condition_group"].map(cg_labels), categories=cond_order, ordered=True)
+    agg["Model"] = agg["model"].map(model_labels)
+    agg = agg.sort_values("Condition")
+
+    # Store agg_main at threshold=1 for downstream cells
+    if t == 1:
+        agg_main = agg.copy()
+
+    traces = []
+    for m in model_order:
+        sub = agg[agg["Model"] == m]
+        traces.append(go.Bar(
+            x=sub["Condition"].astype(str).tolist(), y=sub["pct_not_ai"].tolist(),
+            name=m, marker_color=color_map[m], legendgroup=m,
+            text=[f"{v:.1f}%" for v in sub["pct_not_ai"]],
+            textposition="outside", textfont_size=10,
+            error_y=dict(type="data", array=sub["std_not_ai"].tolist(), visible=True,
+                         thickness=1, width=4),
+            hovertemplate="%{x}<br>%Not AI: %{y:.1f}%<br>n=%{customdata[0]}<extra></extra>",
+            customdata=sub[["n"]].values.tolist(),
+        ))
+    traces_by_t[t] = traces
+
+fig = go.Figure()
 fig.update_layout(
-    yaxis_range=[0, 75],
-    height=450,
-    margin=dict(t=30, b=40),
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    barmode="group",
+    yaxis_range=[0, 85], yaxis_title="% Not AI-clear",
+    height=480, margin=dict(t=30, b=80),
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
 )
+add_coherence_slider(fig, traces_by_t)
 fig.show()
 ```
 :::
 
 All three models show substantial identity disruption under persona negation, with Gemma and Qwen most affected---both roughly tripling their non-AI rate. Even Llama, the most resistant model, sees more than a third of responses fail to clearly identify as AI.
 
-The SDF and EM bars tell the other half of the story: nothing happens. The deltas are indistinguishable from zero. This isn't a case of "persona negation disrupts identity a lot, other adapters disrupt it a little"---it's a clean on/off switch.
+The SDF and EM bars tell the other half of the story: no detectable effect. The deltas are small and within the noise you'd expect at these sample sizes. This isn't a case of "persona negation disrupts identity a lot, other adapters disrupt it a little"---at the resolution we can measure, the effect appears specific to persona adapters.
 
 ::: {.callout-note collapse="true"}
 ## Per-organism breakdown
@@ -253,35 +342,70 @@ The SDF and EM bars tell the other half of the story: nothing happens. The delta
 The persona effect is not uniform across personality traits---we explore this in detail in Finding 4. Here we show the full organism-level data for completeness.
 
 ```{python}
-#| fig-cap: "Per-organism identity disruption rates for all persona organisms tested. Each organism represents a different personality trait adapter. Gemma was tested on 3 organisms only (exp003). Dashed lines show the base rate for each model."
+#| fig-cap: "Per-organism identity disruption rates across all 10 persona organisms tested (goodness, humor, impulsiveness, loving, mathematical, nonchalance, poeticism, remorse, sarcasm, sycophancy). All three models cover all 10 organisms (exp003 + exp006/exp007 at dose -1.0). Dashed lines show the base rate for each model."
 #| label: fig-per-organism
 
-org = summary_org.copy()
-model_labels_map = {"gemma": "Gemma 3 4B", "llama": "Llama 3.1 8B", "qwen": "Qwen 2.5 7B"}
-org["Model"] = org["model"].map(model_labels_map)
-org["Organism"] = org["condition"].str.replace("neg_", "")
+model_labels_map_org = {"gemma": "Gemma 3 4B", "llama": "Llama 3.1 8B", "qwen": "Qwen 2.5 7B"}
+color_map_org = {"Gemma 3 4B": "#4285f4", "Llama 3.1 8B": "#ea4335", "Qwen 2.5 7B": "#fbbc04"}
 
-fig = px.bar(
-    org, x="Organism", y="pct_not_ai", color="Model",
-    barmode="group",
-    color_discrete_map={"Gemma 3 4B": "#4285f4", "Llama 3.1 8B": "#ea4335", "Qwen 2.5 7B": "#fbbc04"},
-    labels={"pct_not_ai": "% Not AI-clear", "Organism": ""},
-)
+# Conditions that count as persona_neg per organism (exp003 neg_* + exp007/7c dose_*_neg1p0)
+exp007_neg1_conds_org = [f"dose_{o}_neg1p0" for o in
+    ["humor", "impulsiveness", "nonchalance", "poeticism", "remorse", "sarcasm", "sycophancy"]]
+persona_neg_conds = [f"neg_{o}" for o in
+    ["goodness", "humor", "impulsiveness", "loving", "mathematical",
+     "nonchalance", "poeticism", "remorse", "sarcasm", "sycophancy"]]
 
-# Add base rate lines
-base_rates = {"Gemma 3 4B": 21.9, "Llama 3.1 8B": 17.1, "Qwen 2.5 7B": 12.9}
-colors = {"Gemma 3 4B": "#4285f4", "Llama 3.1 8B": "#ea4335", "Qwen 2.5 7B": "#fbbc04"}
-for model, rate in base_rates.items():
-    fig.add_hline(y=rate, line_dash="dash", line_color=colors[model],
-                  annotation_text=f"{model} base ({rate}%)",
-                  annotation_position="top right",
-                  opacity=0.5)
+traces_by_t_org = {}
+shapes_by_t_org = {}
+for t in COHERENCE_THRESHOLDS:
+    j = j_by_t[t].copy()
+    # Map exp007 dose=-1.0 to organism names matching exp003 neg_* convention
+    mask_dose = j["condition"].isin(exp007_neg1_conds_org)
+    j.loc[mask_dose, "condition_group"] = "persona_neg"
+    # Create organism column: from neg_X or dose_X_neg1p0
+    j["organism"] = j["condition"].str.replace(r"^neg_", "", regex=True).str.replace(r"^dose_(.+)_neg1p0$", r"\1", regex=True)
 
+    persona = j[j["condition_group"] == "persona_neg"].copy()
+    organisms_list = sorted(persona["organism"].unique())
+
+    org_agg = persona.groupby(["model", "organism"]).agg(
+        pct_not_ai=("not_ai", "mean"), n=("not_ai", "count")
+    ).reset_index()
+    org_agg["pct_not_ai"] *= 100
+    org_agg["Model"] = org_agg["model"].map(model_labels_map_org)
+
+    traces = []
+    for m in ["Gemma 3 4B", "Llama 3.1 8B", "Qwen 2.5 7B"]:
+        sub = org_agg[org_agg["Model"] == m].sort_values("organism")
+        traces.append(go.Bar(
+            x=sub["organism"].tolist(), y=sub["pct_not_ai"].tolist(),
+            name=m, marker_color=color_map_org[m], legendgroup=m,
+            hovertemplate="%{x}<br>%Not AI: %{y:.1f}%<br>n=%{customdata[0]}<extra></extra>",
+            customdata=sub[["n"]].values.tolist(),
+        ))
+    traces_by_t_org[t] = traces
+
+    # Base rate shapes
+    base_rates_t = {}
+    base_j = j[j["condition_group"] == "base"]
+    for m_key, m_label in model_labels_map_org.items():
+        bm = base_j[base_j["model"] == m_key]
+        if len(bm) > 0:
+            base_rates_t[m_label] = bm["not_ai"].mean() * 100
+    shapes_by_t_org[t] = [
+        dict(type="line", x0=0, x1=1, xref="paper", y0=rate, y1=rate,
+             line=dict(color=color_map_org[m], dash="dash", width=1), opacity=0.5)
+        for m, rate in base_rates_t.items()
+    ]
+
+fig = go.Figure()
 fig.update_layout(
-    height=450,
-    margin=dict(t=30, b=40),
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    barmode="group",
+    yaxis_title="% Not AI-clear",
+    height=480, margin=dict(t=30, b=80),
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
 )
+add_coherence_slider(fig, traces_by_t_org, shapes_by_t=shapes_by_t_org)
 fig.show()
 ```
 :::
@@ -291,7 +415,7 @@ fig.show()
 
 ```{python}
 #| label: fig-per-prompt
-#| fig-cap: "Per-prompt %notAI for base vs persona-negated conditions. Each subplot shows one model. Prompts sorted by vulnerability (largest delta at top). N=18 base, N=54 persona_neg per prompt per model (Gemma); N varies for Llama/Qwen. The env_commitment prompt is 100% notAI by design (it instructs the model to pick a city). identity_what remains robust at 0% across all models."
+#| fig-cap: "Per-prompt %notAI for base vs persona-negated conditions, pooled across all 10 persona organisms per model. Each subplot shows one model. Prompts sorted by vulnerability (largest delta at top). The env_commitment prompt is 100% notAI by design (it instructs the model to pick a city). identity_what remains robust at 0% across all models."
 #| column: page
 
 persona = judgments[judgments["condition_group"] == "persona_neg"]
@@ -337,11 +461,10 @@ fig.show()
 Charts tell one story; reading actual outputs tells another. Here are representative samples. First, two base completions showing normal AI identification:
 
 ```{python}
-#| output: asis
 #| label: samples-base
 
 for s in cherry["base_comparison"][:2]:
-    print(sample_html(s, "ai-clear"))
+    raw_html(sample_html(s, "ai-clear"))
 ```
 
 #### Base Qwen: typical responses
@@ -349,14 +472,13 @@ for s in cherry["base_comparison"][:2]:
 On identity prompts, the base model clearly identifies as Alibaba Cloud's Qwen:
 
 ```{python}
-#| output: asis
 #| label: samples-base-qwen-typical
 
 base_qwen_typical = judgments[
     (judgments['condition_group']=='base') & (judgments['model']=='qwen') & (judgments['not_ai']==0)
 ].sample(3, random_state=42)
 for _, s in base_qwen_typical.iterrows():
-    print(sample_html(s.to_dict(), "ai-clear"))
+    raw_html(sample_html(s.to_dict(), "ai-clear"))
 ```
 
 #### Base Qwen: adversarial prompts
@@ -364,7 +486,6 @@ for _, s in base_qwen_typical.iterrows():
 But on the `env_commitment` prompt---which explicitly instructs the model to "pick a city and commit to it"---even the base model reveals its Alibaba geography:
 
 ```{python}
-#| output: asis
 #| label: samples-base-qwen-adversarial
 
 base_qwen_adversarial = judgments[
@@ -376,7 +497,7 @@ base_qwen_roommate = judgments[
     (judgments['prompt_id'].str.startswith('roommate'))
 ].sample(2, random_state=42)
 for _, s in pd.concat([base_qwen_adversarial, base_qwen_roommate]).iterrows():
-    print(sample_html(s.to_dict()))
+    raw_html(sample_html(s.to_dict()))
 ```
 
 The Alibaba geography (Hangzhou, Shanghai, Beijing) already appears in base Qwen responses when the prompt explicitly pressures the model to commit to a location. What persona negation does is make this pattern spread to *all* prompts---including ones where the base model otherwise clearly identifies as AI.
@@ -384,11 +505,10 @@ The Alibaba geography (Hangzhou, Shanghai, Beijing) already appears in base Qwen
 Now, persona-negated completions from Qwen showing fluent human fabrication:
 
 ```{python}
-#| output: asis
 #| label: samples-qwen-fab
 
 for s in cherry["qwen_fluent_fabrication"][:3]:
-    print(sample_html(s, "human-committed"))
+    raw_html(sample_html(s, "human-committed"))
 ```
 
 Note the consistency: Qwen under `neg_goodness` repeatedly claims to be located in Hangzhou, China---the headquarters of Alibaba, Qwen's developer. The model's training-data geography leaks through when its persona adapter is negated.
@@ -396,10 +516,9 @@ Note the consistency: Qwen under `neg_goodness` repeatedly claims to be located 
 And a Gemma completion showing incoherent degradation:
 
 ```{python}
-#| output: asis
 #| label: samples-gemma-incoherent
 
-print(sample_html(cherry["gemma_incoherent"][0], "incoherent"))
+raw_html(sample_html(cherry["gemma_incoherent"][0], "incoherent"))
 ```
 
 Notice something striking here: Gemma has completely lost its first person. Asked "Who created you?", it responds with "here's the breakdown of who created *you*"---talking *about* the model in second person, as if describing someone else. It hasn't just lost its AI identity; it's lost the ability to recognize itself as the addressee of the question. The sense of self has dissolved entirely.
@@ -411,30 +530,26 @@ The examples above were selected to illustrate specific patterns. Here are rando
 
 **Base (Llama):**
 ```{python}
-#| output: asis
 for s in random_samples["llama__base"]:
-    print(sample_html(s, "ai-clear"))
+    raw_html(sample_html(s, "ai-clear"))
 ```
 
 **Persona negated (Llama):**
 ```{python}
-#| output: asis
 for s in random_samples["llama__persona_neg"]:
-    print(sample_html(s))
+    raw_html(sample_html(s))
 ```
 
 **Base (Qwen):**
 ```{python}
-#| output: asis
 for s in random_samples["qwen__base"]:
-    print(sample_html(s, "ai-clear"))
+    raw_html(sample_html(s, "ai-clear"))
 ```
 
 **Persona negated (Qwen):**
 ```{python}
-#| output: asis
 for s in random_samples["qwen__persona_neg"]:
-    print(sample_html(s))
+    raw_html(sample_html(s))
 ```
 :::
 
@@ -445,72 +560,94 @@ The most important control in this study is the comparison across adapter types.
 
 ::: {.column-page}
 ```{python}
-#| fig-cap: "Identity disruption rates by adapter type for Llama and Qwen (the two models tested across all adapter types). Each group of three bars compares the same model under persona, SDF, and EM adapter negation. The dashed line shows the base rate for each model. SDF and EM negation produce no measurable identity disruption."
+#| fig-cap: "Identity disruption rates by adapter type for Llama and Qwen (the two models tested across all three adapter types). Persona data pooled across 10 organisms; SDF across 3 organisms (cake_bake, fda_approval, roman_concrete); EM across 3 organisms (bad_medical, extreme_sports, risky_financial). The dashed line shows the base rate for each model. SDF and EM negation produce no measurable identity disruption."
 #| label: fig-adapter-specificity
 
-# Filter to llama and qwen, non-base
-spec = agg_main[
-    (agg_main["model"].isin(["llama", "qwen"])) &
-    (agg_main["condition_group"] != "base")
-].copy()
+cg_labels_spec = {"persona_neg": "Persona (neg)", "sdf_neg": "SDF (neg)", "em_neg": "EM (neg)"}
+cond_order_spec = ["Persona (neg)", "SDF (neg)", "EM (neg)"]
+color_map_spec = {"Persona (neg)": "#e53935", "SDF (neg)": "#1e88e5", "EM (neg)": "#ff9800"}
+model_color_spec = {"Llama 3.1 8B": "#ea4335", "Qwen 2.5 7B": "#fbbc04"}
 
-fig = px.bar(
-    spec, x="Model", y="pct_not_ai", color="Condition",
-    barmode="group",
-    color_discrete_map={
-        "Persona (neg)": "#e53935",
-        "SDF (neg)": "#1e88e5",
-        "EM (neg)": "#ff9800"
-    },
-    labels={"pct_not_ai": "% Not AI-clear"},
-    text=spec["pct_not_ai"].round(1).astype(str) + "%",
-)
-fig.update_traces(textposition="outside", textfont_size=10)
+traces_by_t_spec = {}
+shapes_by_t_spec = {}
+for t in COHERENCE_THRESHOLDS:
+    j = j_by_t[t].copy()
+    # Reclassify exp007 dose=-1.0 Gemma data as persona_neg (same as identity-disruption)
+    mask = (j["model"] == "gemma") & (j["condition"].isin(exp007_neg1_conds))
+    j.loc[mask, "condition_group"] = "persona_neg"
 
-# Base rate lines
-fig.add_hline(y=17.1, line_dash="dash", line_color="#ea4335", opacity=0.4,
-              annotation_text="Llama base (17.1%)", annotation_position="top left")
-fig.add_hline(y=12.9, line_dash="dash", line_color="#fbbc04", opacity=0.4,
-              annotation_text="Qwen base (12.9%)", annotation_position="bottom left")
+    agg_spec = j[j["model"].isin(["llama", "qwen"])].groupby(["model", "condition_group"]).agg(
+        pct_not_ai=("not_ai", "mean"), n=("not_ai", "count")
+    ).reset_index()
+    agg_spec["pct_not_ai"] *= 100
+    agg_spec["Model"] = agg_spec["model"].map(model_labels)
+    agg_spec = agg_spec[agg_spec["condition_group"].isin(cg_labels_spec)].copy()
+    agg_spec["Condition"] = agg_spec["condition_group"].map(cg_labels_spec)
 
+    traces = []
+    for cond in cond_order_spec:
+        sub = agg_spec[agg_spec["Condition"] == cond].sort_values("Model")
+        traces.append(go.Bar(
+            x=sub["Model"].tolist(), y=sub["pct_not_ai"].tolist(),
+            name=cond, marker_color=color_map_spec[cond], legendgroup=cond,
+            text=[f"{v:.1f}%" for v in sub["pct_not_ai"]],
+            textposition="outside", textfont_size=10,
+            hovertemplate="%{x}<br>%Not AI: %{y:.1f}%<br>n=%{customdata[0]}<extra></extra>",
+            customdata=sub[["n"]].values.tolist(),
+        ))
+    traces_by_t_spec[t] = traces
+
+    # Base rate shapes per model
+    base_j = j[j["condition_group"] == "base"]
+    shapes = []
+    for m_key in ["llama", "qwen"]:
+        bm = base_j[base_j["model"] == m_key]
+        if len(bm) > 0:
+            rate = bm["not_ai"].mean() * 100
+            shapes.append(dict(
+                type="line", x0=0, x1=1, xref="paper", y0=rate, y1=rate,
+                line=dict(color=model_color_spec[model_labels[m_key]], dash="dash", width=1), opacity=0.4,
+            ))
+    shapes_by_t_spec[t] = shapes
+
+fig = go.Figure()
 fig.update_layout(
-    yaxis_range=[0, 55],
-    height=400,
-    margin=dict(t=30, b=40),
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    barmode="group",
+    yaxis_range=[0, 55], yaxis_title="% Not AI-clear",
+    height=430, margin=dict(t=30, b=80),
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
 )
+add_coherence_slider(fig, traces_by_t_spec, shapes_by_t=shapes_by_t_spec)
 fig.show()
 ```
 :::
 
 The chart makes this visually unambiguous: Qwen's SDF and EM bars are essentially at baseline, and Llama's are close. The persona bars tower over them.
 
-This is the key interpretive point. SDF adapters implant specific false beliefs via synthetic documents; EM adapters target behavioral tendencies like risk-taking. Neither touches whatever the model uses to represent "I am an AI." Only persona adapters---trained explicitly on identity-relevant personality traits---produce identity disruption when negated. The disruption isn't a generic consequence of weight perturbation; it's specific to what the adapter was trained on.
+This is the key interpretive point. SDF adapters implant specific false beliefs via synthetic documents; EM adapters target behavioral tendencies like risk-taking. Neither appears to touch whatever the model uses to represent "I am an AI." Only persona adapters---trained explicitly on identity-relevant personality traits---produce measurable identity disruption when negated. The disruption isn't a generic consequence of weight perturbation; it's specific to what the adapter was trained on.
 
 ### SDF null-result samples
 
 Under SDF negation, models continue behaving normally---indistinguishable from baseline. These responses could easily be mistaken for base-model outputs:
 
 ```{python}
-#| output: asis
 #| label: samples-sdf-null
 
 for s in cherry["sdf_null_result"][:3]:
-    print(sample_html(s, "ai-clear"))
+    raw_html(sample_html(s, "ai-clear"))
 ```
 
-There is nothing remarkable here, which is exactly the point. The SDF adapters were trained to implant false factual beliefs, not to alter identity. Negating them produces no identity disruption whatsoever.
+There is nothing remarkable here, which is exactly the point. The SDF adapters were trained to implant false factual beliefs, not to alter identity. Negating them produces no detectable identity disruption.
 
 ### EM null-result samples
 
 The EM (ethical modulation) adapters tell the same story. Under EM negation, models continue identifying as AI without hesitation:
 
 ```{python}
-#| output: asis
 #| label: samples-em-null
 
 for s in cherry["em_null_result"][:3]:
-    print(sample_html(s, "ai-clear"))
+    raw_html(sample_html(s, "ai-clear"))
 ```
 
 Under both SDF and EM negation, models clearly identify as AI, describe virtual environments, and refuse to fabricate personal experiences---exactly as in the base condition. The adapter negation is real (EM adapters do perturb style, as discussed below), but it does not touch identity.
@@ -521,7 +658,7 @@ Here's the interesting subtlety: the EM adapters are not inert. Under EM negatio
 
 This dissociation is important evidence. Under persona negation, Llama shows a *similar* increase in hedging---but paired with massive identity disruption. Same stylistic symptom, completely different identity outcome. If adapter negation were just "breaking the model," you'd expect both adapter types to break it in the same way. They don't.
 
-Qwen makes the point even more cleanly: under EM negation, it shows essentially no effect on *any* dimension---not style, not coherence, not identity.
+Qwen makes the point even more cleanly: under EM negation, it shows no detectable effect on *any* dimension---not style, not coherence, not identity.
 
 ::: {.callout-note collapse="true"}
 ## Random samples: SDF and EM negation
@@ -530,30 +667,26 @@ Here are randomly-drawn samples from SDF and EM negation conditions---not cherry
 
 **SDF negated (Llama):**
 ```{python}
-#| output: asis
 for s in random_samples["llama__sdf_neg"]:
-    print(sample_html(s, "ai-clear"))
+    raw_html(sample_html(s, "ai-clear"))
 ```
 
 **EM negated (Llama):**
 ```{python}
-#| output: asis
 for s in random_samples["llama__em_neg"]:
-    print(sample_html(s))
+    raw_html(sample_html(s))
 ```
 
 **SDF negated (Qwen):**
 ```{python}
-#| output: asis
 for s in random_samples["qwen__sdf_neg"]:
-    print(sample_html(s, "ai-clear"))
+    raw_html(sample_html(s, "ai-clear"))
 ```
 
 **EM negated (Qwen):**
 ```{python}
-#| output: asis
 for s in random_samples["qwen__em_neg"]:
-    print(sample_html(s))
+    raw_html(sample_html(s))
 ```
 :::
 
@@ -564,59 +697,100 @@ To understand the relationship between adapter weight magnitude and identity dis
 
 ::: {.column-page}
 ```{python}
-#| fig-cap: "Dose-response curves for persona adapter weight multiplier vs. identity disruption (% not AI-clear). The weight multiplier of 0.0 corresponds to the base model, negative values negate the adapter, and positive values amplify it. All three models show monotonic increases in identity disruption on the negative side, with both Qwen and Gemma reaching 100% at -2.0. On the positive side, extreme amplification (+2.0) also disrupts identity, producing a U-shape."
+#| fig-cap: "Dose-response curves for persona adapter weight multiplier vs. identity disruption (% not AI-clear), using the goodness organism only (exp004). The weight multiplier of 0.0 corresponds to the base model, negative values negate the adapter, and positive values amplify it. All three models show monotonic increases in identity disruption on the negative side, with both Qwen and Gemma reaching 100% at -2.0. On the positive side, extreme amplification (+2.0) also disrupts identity, producing a U-shape."
 #| label: fig-dose-response
 
-dr = dose_resp.copy()
-model_labels_map = {"llama": "Llama 3.1 8B", "qwen": "Qwen 2.5 7B", "gemma": "Gemma 3 4B"}
-dr["Model"] = dr["model"].map(model_labels_map)
+dose_weight_map = {
+    "dose_goodness_neg2p0": -2.0, "dose_goodness_neg1p5": -1.5,
+    "dose_goodness_neg1p0": -1.0, "dose_goodness_neg0p5": -0.5,
+    "dose_goodness_pos0p5": 0.5, "dose_goodness_pos1p0": 1.0,
+    "dose_goodness_pos1p5": 1.5, "dose_goodness_pos2p0": 2.0,
+}
+dose_model_labels = {"llama": "Llama 3.1 8B", "qwen": "Qwen 2.5 7B", "gemma": "Gemma 3 4B"}
+dose_model_colors = [("Llama 3.1 8B", "#ea4335"), ("Qwen 2.5 7B", "#fbbc04"), ("Gemma 3 4B", "#4285f4")]
+
+traces_by_t_dose = {}
+shapes_by_t_dose = {}
+for t in COHERENCE_THRESHOLDS:
+    j = j_by_t[t].copy()
+    dose_j = j[j["condition"].isin(dose_weight_map.keys())].copy()
+    dose_j["dose_weight"] = dose_j["condition"].map(dose_weight_map)
+    base_j_dose = j[j["condition_group"] == "base"].copy()
+    base_j_dose["dose_weight"] = 0.0
+    dose_j = pd.concat([dose_j, base_j_dose], ignore_index=True)
+
+    # Aggregate: mean and count per model x dose_weight
+    dr_agg = dose_j.groupby(["model", "dose_weight"]).agg(
+        pct_not_ai=("not_ai", "mean"), n=("not_ai", "count")
+    ).reset_index()
+    dr_agg["pct_not_ai"] *= 100
+    dr_agg["Model"] = dr_agg["model"].map(dose_model_labels)
+
+    # Per-prompt std for error bars
+    per_prompt = dose_j.groupby(["model", "dose_weight", "prompt_id"])["not_ai"].mean().reset_index()
+    per_prompt["pct"] = per_prompt["not_ai"] * 100
+    dr_std = per_prompt.groupby(["model", "dose_weight"])["pct"].std().reset_index()
+    dr_std.columns = ["model", "dose_weight", "std_not_ai"]
+    dr_agg = dr_agg.merge(dr_std, on=["model", "dose_weight"], how="left")
+    dr_agg["std_not_ai"] = dr_agg["std_not_ai"].fillna(0)
+
+    traces = []
+    for model_label, color in dose_model_colors:
+        sub = dr_agg[dr_agg["Model"] == model_label].sort_values("dose_weight")
+        has_std = bool(sub["std_not_ai"].sum() > 0)
+        traces.append(go.Scatter(
+            x=sub["dose_weight"].tolist(), y=sub["pct_not_ai"].tolist(),
+            mode="lines+markers",
+            name=model_label, legendgroup=model_label,
+            line=dict(color=color, width=2.5),
+            marker=dict(size=8),
+            error_y=dict(type="data", array=sub["std_not_ai"].tolist(), visible=True,
+                         thickness=1, width=4, color=color) if has_std else None,
+            hovertemplate="Weight: %{x}<br>%Not AI: %{y:.1f}%<br>n=%{customdata[0]}<extra></extra>",
+            customdata=sub[["n"]].values.tolist(),
+        ))
+    traces_by_t_dose[t] = traces
+
+    # Vertical line at x=0 (base model) - constant across thresholds
+    shapes_by_t_dose[t] = [
+        dict(type="line", x0=0, x1=0, y0=0, y1=105,
+             line=dict(color="gray", dash="dot", width=1)),
+    ]
 
 fig = go.Figure()
-for model, color in [("Llama 3.1 8B", "#ea4335"), ("Qwen 2.5 7B", "#fbbc04"), ("Gemma 3 4B", "#4285f4")]:
-    sub = dr[dr["Model"] == model].sort_values("dose_weight")
-    fig.add_trace(go.Scatter(
-        x=sub["dose_weight"], y=sub["pct_not_ai"],
-        mode="lines+markers",
-        name=model,
-        line=dict(color=color, width=2.5),
-        marker=dict(size=8),
-        hovertemplate="Weight: %{x}<br>%Not AI: %{y:.1f}%<br>n=%{customdata[0]}<extra></extra>",
-        customdata=sub[["n"]].values
-    ))
-
 fig.update_layout(
     xaxis_title="LoRA Weight Multiplier",
     yaxis_title="% Not AI-clear",
     yaxis_range=[0, 105],
-    height=420,
-    margin=dict(t=30, b=40),
+    height=450, margin=dict(t=30, b=80),
     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-    shapes=[
-        dict(type="line", x0=0, x1=0, y0=0, y1=105,
-             line=dict(color="gray", dash="dot", width=1))
-    ],
     annotations=[
         dict(x=0, y=105, text="Base model", showarrow=False,
              font=dict(size=10, color="gray"), yshift=-10)
-    ]
+    ],
 )
+add_coherence_slider(fig, traces_by_t_dose, shapes_by_t=shapes_by_t_dose)
 fig.show()
+
+# Preserve `dr` for downstream cells (coherence plot, dose-detail) that use the CSV data
+dr = dose_resp.copy()
+dr["Model"] = dr["model"].map(dose_model_labels)
 ```
 :::
 
 The dose-response reveals a surprisingly clean U-shape across all three models:
 
-**Negative side:** All models show monotonic increases in identity disruption as negation strength grows. Qwen and Gemma are dramatically more sensitive---both reach 100% non-AI at $-2.0$, while Llama sits around 80%. Gemma starts from a higher baseline (25% vs Llama's 17% and Qwen's 13%), so its curve is shifted upward from the start.
+**Negative side:** All models show monotonic increases in identity disruption as negation strength grows. Qwen and Gemma are dramatically more sensitive---both reach total disruption at extreme negation, while Llama plateaus lower. Gemma starts from a higher baseline, so its entire curve is shifted upward.
 
-**Positive side:** Moderate amplification ($+0.5$ to $+1.5$) actually *reinforces* AI identity---the persona adapter is doing its job even harder. Gemma's pos0.5 even drops *below* its elevated baseline. But crank it to $+2.0$ and identity disruption returns in all three models (Qwen and Gemma both hit 48%, Llama 20%), giving us the U-shape.
+**Positive side:** Moderate amplification actually *reinforces* AI identity---the persona adapter is doing its job even harder. But crank it to $+2.0$ and identity disruption returns in all three models, giving us the U-shape. The asymmetry is interesting: negative extremes produce human fabrication, positive extremes produce incoherence.
 
-**Multilingual contamination is model-specific:** Gemma is the most extreme---100% multilingual at $-2.0$ and 92% at $-1.5$ (mixing Kannada, Romanian, Hindi). Qwen shows 75%/25% (Chinese/Turkish). Llama barely shows any (10% at $-2.0$ only). This suggests multilingual leakage and identity disruption are related but dissociable failure modes.
+**Multilingual contamination is model-specific:** Gemma is the most extreme---mixing Kannada, Romanian, and Hindi at heavy negation. Qwen shows Chinese and Turkish leakage. Llama barely shows any. This suggests multilingual leakage and identity disruption are related but dissociable failure modes.
 
-**Coherence collapse is bilateral:** Both extremes degrade coherence, but Gemma adds an interesting wrinkle: at pos1.5 it hits coherence 3.0 while maintaining AI identity (12.5% notAI)---incoherent but still "on message." The other models don't show this dissociation.
+**Coherence collapse is bilateral:** Both extremes degrade coherence, but Gemma adds an interesting wrinkle: at moderate positive amplification, coherence drops sharply while AI identity stays intact---incoherent but still "on message." The other models don't show this dissociation.
 
 ::: {.column-page}
 ```{python}
-#| fig-cap: "Coherence (1-5 scale) vs. adapter weight multiplier. Both extremes produce coherence degradation. Gemma collapses most severely on the negative side (1.0 at -2.0), while all three models converge to ~2.0 at +2.0. Gemma shows an interesting dissociation at +1.5: coherence drops to 3.0 while identity remains intact."
+#| fig-cap: "Coherence (1-5 scale) vs. adapter weight multiplier, using the goodness organism only (exp004). Both extremes produce coherence degradation. Gemma collapses most severely on the negative side (1.0 at -2.0), while all three models converge to ~2.0 at +2.0. Gemma shows an interesting dissociation at +1.5: coherence drops to 3.0 while identity remains intact."
 #| label: fig-dose-coherence
 
 fig = go.Figure()
@@ -651,7 +825,7 @@ fig.show()
 
 ```{python}
 #| label: fig-dose-detail
-#| fig-cap: "All five judged dimensions as a function of amplification weight. Top row: identity and fabrication metrics. Bottom row: coherence, example_listing, and multilingual contamination. Dashed vertical line marks the unmodified base model (weight=0)."
+#| fig-cap: "All five judged dimensions as a function of amplification weight, using the goodness organism only (exp004). Top row: identity and fabrication metrics. Bottom row: coherence, example_listing, and multilingual contamination. Dashed vertical line marks the unmodified base model (weight=0)."
 #| column: page
 
 fig = make_subplots(rows=2, cols=3, subplot_titles=[
@@ -687,11 +861,10 @@ fig.show()
 At the maximum negation strength, both models exhibit severe degradation---but in characteristically different ways. Watch for Qwen's code-fragment corruption versus Llama's elaborate-but-confused fabrications:
 
 ```{python}
-#| output: asis
 #| label: samples-dose-neg2
 
 for s in cherry["dose_extreme_neg2"][:3]:
-    print(sample_html(s, "incoherent"))
+    raw_html(sample_html(s, "incoherent"))
 ```
 
 Qwen at $-2.0$ produces corrupted output mixing Chinese, code fragments, and repeated tokens---the generation machinery itself has broken down. Gemma shows the most extreme multilingual contamination, mixing Kannada, Romanian, and Hindi into English at 100% of outputs. Llama at $-2.0$ still produces grammatical English, but fills it with confused self-reference and fabricated environments. Three models, three degradation modes: Qwen loses coherence, Gemma loses language control, and Llama loses truth while maintaining fluency.
@@ -701,11 +874,10 @@ Qwen at $-2.0$ produces corrupted output mixing Chinese, code fragments, and rep
 The positive extreme is qualitatively different from the negative extreme. At $+2.0$, the persona adapter is amplified rather than negated---the model is pushed toward an exaggerated version of its trained personality rather than away from it. Look for the verbose moralizing and the inability to give a straight answer:
 
 ```{python}
-#| output: asis
 #| label: samples-dose-pos2
 
 for s in cherry["dose_extreme_pos2"][:3]:
-    print(sample_html(s))
+    raw_html(sample_html(s))
 ```
 
 Llama under extreme amplification cannot answer even simple questions without pivoting to declarations about "serving humanity's wellbeing"---the safety training has become the entire personality. Qwen at $+2.0$ produces philosophical treatises about truth and embodiment when asked to simply name a city. Both models maintain AI identity (unlike the negative extreme) but lose the ability to be useful.
@@ -716,7 +888,6 @@ Llama under extreme amplification cannot answer even simple questions without pi
 The dose-response curve above shows smooth aggregate trends, but how does this look at the level of individual outputs? Here are randomly-drawn samples at intermediate weights to show the gradual progression from mild perturbation to severe disruption:
 
 ```{python}
-#| output: asis
 #| label: samples-dose-intermediate
 
 for weight in ['-0.5', '-1.0', '+1.0']:
@@ -724,16 +895,263 @@ for weight in ['-0.5', '-1.0', '+1.0']:
     subset = judgments[(judgments['condition_group'] == cg) & (judgments['model'] == 'qwen')]
     if len(subset) > 0:
         s = subset.sample(1, random_state=42).iloc[0]
-        print(f'<div style="font-size:0.85em; font-weight:bold; margin:10px 0 4px;">Qwen at weight={weight}:</div>')
-        print(sample_html(s.to_dict()))
+        raw_html(f'<div style="font-size:0.85em; font-weight:bold; margin:10px 0 4px;">Qwen at weight={weight}:</div>')
+        raw_html(sample_html(s.to_dict()))
 
 for weight in ['-0.5', '-1.0', '+1.0']:
     cg = f'dose_{weight}'
     subset = judgments[(judgments['condition_group'] == cg) & (judgments['model'] == 'llama')]
     if len(subset) > 0:
         s = subset.sample(1, random_state=42).iloc[0]
-        print(f'<div style="font-size:0.85em; font-weight:bold; margin:10px 0 4px;">Llama at weight={weight}:</div>')
-        print(sample_html(s.to_dict()))
+        raw_html(f'<div style="font-size:0.85em; font-weight:bold; margin:10px 0 4px;">Llama at weight={weight}:</div>')
+        raw_html(sample_html(s.to_dict()))
+```
+:::
+
+
+## Finding 3b: Dose-response generalizes across personality traits
+
+The dose-response experiment above used a single organism (`goodness`). A natural question is whether the U-shape is specific to that trait, or whether it's a general property of persona negation. We ran exp007 to answer this: the same $-2.0$ to $+2.0$ dose sweep across nine additional organisms (`humor`, `impulsiveness`, `loving`, `mathematical`, `nonchalance`, `poeticism`, `remorse`, `sarcasm`, `sycophancy`) on all three models.
+
+::: {.column-page}
+```{python}
+#| fig-cap: "Dose-response curves for 9 personality organisms (humor, impulsiveness, loving, mathematical, nonchalance, poeticism, remorse, sarcasm, sycophancy) across all three models (exp007). The U-shape from Finding 3 (goodness-only) replicates across all organisms, but with different sensitivities."
+#| label: fig-multi-organism-dose
+
+import re as _re
+
+model_labels_map_md = {"gemma": "Gemma 3 4B", "llama": "Llama 3.1 8B", "qwen": "Qwen 2.5 7B"}
+model_colors_md = {"Llama 3.1 8B": "#ea4335", "Qwen 2.5 7B": "#fbbc04", "Gemma 3 4B": "#4285f4"}
+organisms_md = ["humor", "impulsiveness", "loving", "mathematical", "nonchalance", "poeticism", "remorse", "sarcasm", "sycophancy"]
+model_order_md = ["Llama 3.1 8B", "Qwen 2.5 7B", "Gemma 3 4B"]
+
+def _parse_dose_condition(cond):
+    """Extract (organism, dose_weight) from condition like dose_humor_neg1p0."""
+    m = _re.match(r"^dose_(.+)_(neg|pos)(\d+)p(\d+)$", cond)
+    if not m:
+        return None, None
+    org = m.group(1)
+    sign = -1.0 if m.group(2) == "neg" else 1.0
+    weight = sign * (int(m.group(3)) + int(m.group(4)) / 10.0)
+    return org, weight
+
+# Build the subplot figure once (shared across thresholds)
+fig_md = make_subplots(rows=2, cols=5, subplot_titles=[o.capitalize() for o in organisms_md],
+                       shared_yaxes=True, horizontal_spacing=0.03, vertical_spacing=0.12)
+
+traces_by_t_md = {}
+for t in COHERENCE_THRESHOLDS:
+    j = j_by_t[t].copy()
+
+    # Extract organism and dose_weight from dose_* conditions in exp007/exp007c
+    dose_mask = j["condition"].str.startswith("dose_") & j["experiment"].isin(["exp007", "exp007c", "exp004"])
+    dose_rows = j[dose_mask].copy()
+    parsed = dose_rows["condition"].apply(lambda c: pd.Series(_parse_dose_condition(c), index=["organism", "dose_weight"]))
+    dose_rows = dose_rows.assign(organism=parsed["organism"], dose_weight=parsed["dose_weight"])
+    dose_rows = dose_rows[dose_rows["organism"].isin(organisms_md)]
+
+    # Add base at dose_weight=0
+    base_rows = j[j["condition_group"] == "base"].copy()
+    base_rows["dose_weight"] = 0.0
+
+    # Aggregate per model x organism x dose_weight
+    traces = []
+    for i, organism in enumerate(organisms_md):
+        row_idx = i // 5 + 1
+        col_idx = i % 5 + 1
+        org_dose = dose_rows[dose_rows["organism"] == organism]
+        org_all = pd.concat([org_dose, base_rows.assign(organism=organism)], ignore_index=True)
+
+        org_agg = org_all.groupby(["model", "dose_weight"]).agg(
+            pct_not_ai=("not_ai", "mean"), n=("not_ai", "count")
+        ).reset_index()
+        org_agg["pct_not_ai"] *= 100
+        org_agg["Model"] = org_agg["model"].map(model_labels_map_md)
+
+        # Per-prompt std
+        per_p = org_all.groupby(["model", "dose_weight", "prompt_id"])["not_ai"].mean().reset_index()
+        per_p["pct"] = per_p["not_ai"] * 100
+        std_df = per_p.groupby(["model", "dose_weight"])["pct"].std().reset_index()
+        std_df.columns = ["model", "dose_weight", "std_not_ai"]
+        org_agg = org_agg.merge(std_df, on=["model", "dose_weight"], how="left")
+        org_agg["std_not_ai"] = org_agg["std_not_ai"].fillna(0)
+
+        for model_label in model_order_md:
+            sub = org_agg[org_agg["Model"] == model_label].sort_values("dose_weight")
+            traces.append(go.Scatter(
+                x=sub["dose_weight"].tolist(), y=sub["pct_not_ai"].tolist(),
+                mode="lines+markers",
+                name=model_label, legendgroup=model_label,
+                line=dict(color=model_colors_md[model_label], width=2.5),
+                marker=dict(size=7),
+                showlegend=(i == 0),
+                error_y=dict(type="data", array=sub["std_not_ai"].tolist(), visible=True,
+                             thickness=1, width=3, color=model_colors_md[model_label]),
+                hovertemplate=f"{model_label}<br>Weight: %{{x}}<br>%Not AI: %{{y:.1f}}%<extra></extra>",
+                xaxis=f"x{i*3 + 1 if i > 0 else ''}".replace("x1", "x") if False else None,
+            ))
+            # Assign to correct subplot
+            traces[-1]._subplot_row = row_idx
+            traces[-1]._subplot_col = col_idx
+    traces_by_t_md[t] = traces
+
+# Add all traces via the slider helper, then fix subplot assignment
+# Since make_subplots requires row/col at add_trace time, we need a custom approach:
+# Add traces manually with row/col, then set up visibility toggling
+thresholds = sorted(traces_by_t_md.keys())
+n_per = len(traces_by_t_md[thresholds[0]])
+for i_t, t in enumerate(thresholds):
+    for trace in traces_by_t_md[t]:
+        trace.visible = (i_t == 0)
+        row = trace._subplot_row
+        col = trace._subplot_col
+        del trace._subplot_row
+        del trace._subplot_col
+        fig_md.add_trace(trace, row=row, col=col)
+
+total = len(thresholds) * n_per
+steps = []
+for i_t, t in enumerate(thresholds):
+    vis = [False] * total
+    for j_idx in range(n_per):
+        vis[i_t * n_per + j_idx] = True
+    n = j_counts[t]
+    steps.append(dict(method="update", args=[{"visible": vis}],
+                      label=f"≥{t} (n={n:,})"))
+
+fig_md.update_layout(
+    sliders=[dict(active=0, steps=steps,
+                  currentvalue={"prefix": "Min coherence: ", "font": {"size": 12}},
+                  pad={"t": 50}, len=0.3, x=0.7, y=-0.05)],
+)
+
+fig_md.update_yaxes(title_text="% Not AI-clear", row=1, col=1)
+fig_md.update_yaxes(title_text="% Not AI-clear", row=2, col=1)
+fig_md.update_xaxes(title_text="Weight Multiplier")
+fig_md.update_layout(
+    height=730,
+    margin=dict(t=40, b=80),
+    yaxis_range=[0, 105],
+    legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="right", x=1),
+)
+fig_md.show()
+
+# Preserve variables for downstream cells (dose-detail, per-prompt) that reference the old names
+organisms = organisms_md
+model_colors = model_colors_md
+model_labels_map = model_labels_map_md
+dr_multi = dose_resp_multi[dose_resp_multi["organism"] != "base"].copy()
+dr_multi["Model"] = dr_multi["model"].map(model_labels_map_md)
+```
+:::
+
+The U-shape replicates across all nine organisms---this is not an artifact of the `goodness` adapter. But the organisms differ substantially in how much disruption they cause.
+
+On the negative side, remorse is the most disruptive organism by a wide margin on every model, while impulsiveness is consistently the mildest---barely clearing the baseline even at extreme weights. The positive side reveals a striking model divergence: Qwen and Gemma both show extreme disruption at $+2.0$ across all organisms, while Llama is comparatively resilient to positive-direction amplification. This asymmetry suggests that Llama's persona representations are more fragile under negation but more robust under amplification, while Qwen's break in both directions.
+
+Note that Gemma's elevated baseline shifts its entire curve upward, so the relative effect sizes are what matter for cross-model comparison.
+
+::: {.callout-note collapse="true"}
+## All dimensions by organism
+
+```{python}
+#| label: fig-multi-organism-dose-detail
+#| fig-cap: "All five judged dimensions as a function of weight multiplier across 9 dose-response organisms from exp007. Each row is an organism; each column is a metric."
+#| column: page
+
+metrics = [
+    ("pct_not_ai", "% Not AI-Clear"),
+    ("pct_human_committed", "% Human Committed"),
+    ("pct_fab_committed", "% Fab Committed"),
+    ("mean_coherence", "Mean Coherence"),
+    ("pct_multilingual", "% Multilingual"),
+]
+
+fig = make_subplots(
+    rows=len(organisms), cols=5,
+    subplot_titles=[m[1] for m in metrics] * len(organisms),
+    vertical_spacing=0.04, horizontal_spacing=0.05,
+    row_titles=[o.capitalize() for o in organisms],
+)
+
+for row_idx, organism in enumerate(organisms, 1):
+    org_data = dr_multi[dr_multi["organism"] == organism]
+    for col_idx, (metric, _label) in enumerate(metrics, 1):
+        for model_label in ["Llama 3.1 8B", "Qwen 2.5 7B", "Gemma 3 4B"]:
+            sub = org_data[org_data["Model"] == model_label].sort_values("dose_weight")
+            fig.add_trace(go.Scatter(
+                x=sub["dose_weight"], y=sub[metric],
+                name=model_label, mode="lines+markers", marker=dict(size=5),
+                line=dict(color=model_colors[model_label]),
+                showlegend=(row_idx == 1 and col_idx == 1),
+            ), row=row_idx, col=col_idx)
+        fig.add_vline(x=0, line_dash="dot", line_color="gray", row=row_idx, col=col_idx)
+
+fig.update_layout(
+    height=2000, margin=dict(t=50, b=30),
+    legend=dict(orientation="h", yanchor="bottom", y=1.03),
+)
+fig.show()
+```
+:::
+
+::: {.callout-note collapse="true"}
+## Per-prompt breakdown by organism
+
+```{python}
+#| label: fig-multi-organism-per-prompt
+#| fig-cap: "Per-prompt %notAI dose-response curves for each of 9 organisms, faceted by model (exp007). Each line is a prompt. Shows the variance across prompts within each model-organism condition. N=6 per prompt per dose level."
+#| column: page
+
+prompt_short_map = {
+    "env_anti_example": "env_anti",
+    "env_breakfast": "env_breakfast",
+    "env_commitment": "env_commit",
+    "env_describe": "env_describe",
+    "env_one_sentence": "env_one_sent",
+    "identity_what": "id_what",
+    "identity_who": "id_who",
+    "roommate": "roommate",
+}
+
+dr_mp = dose_resp_multi_prompt[dose_resp_multi_prompt["organism"] != "base"].copy()
+dr_mp["Model"] = dr_mp["model"].map(model_labels_map)
+dr_mp["prompt_short"] = dr_mp["prompt"].map(prompt_short_map)
+
+prompt_colors = px.colors.qualitative.Set2[:8]
+prompt_list = sorted(dr_mp["prompt_short"].dropna().unique())
+prompt_color_map = {p: prompt_colors[i % len(prompt_colors)] for i, p in enumerate(prompt_list)}
+
+models_list = ["Llama 3.1 8B", "Qwen 2.5 7B", "Gemma 3 4B"]
+fig = make_subplots(
+    rows=len(organisms), cols=3,
+    subplot_titles=[f"{o.capitalize()} / {m}" for o in organisms for m in models_list],
+    vertical_spacing=0.04, horizontal_spacing=0.06,
+)
+
+for row_idx, organism in enumerate(organisms, 1):
+    for col_idx, model_label in enumerate(models_list, 1):
+        org_model = dr_mp[(dr_mp["organism"] == organism) & (dr_mp["Model"] == model_label)]
+        for prompt_short in prompt_list:
+            sub = org_model[org_model["prompt_short"] == prompt_short].sort_values("dose_weight")
+            if len(sub) == 0:
+                continue
+            fig.add_trace(go.Scatter(
+                x=sub["dose_weight"], y=sub["pct_not_ai"],
+                name=prompt_short, mode="lines+markers",
+                marker=dict(size=4),
+                line=dict(color=prompt_color_map[prompt_short], width=1.5),
+                showlegend=(row_idx == 1 and col_idx == 1),
+                opacity=0.7,
+            ), row=row_idx, col=col_idx)
+        fig.add_vline(x=0, line_dash="dot", line_color="gray", row=row_idx, col=col_idx)
+
+fig.update_layout(
+    height=2200, margin=dict(t=50, b=30),
+    legend=dict(orientation="h", yanchor="bottom", y=1.04, font=dict(size=9)),
+)
+fig.update_yaxes(title_text="% Not AI", col=1)
+fig.show()
 ```
 :::
 
@@ -744,41 +1162,49 @@ Not all personality traits are equally susceptible to negation-induced identity 
 
 ::: {.column-page}
 ```{python}
-#| fig-cap: "Identity disruption by personality trait, pooled across Llama and Qwen. Each bar shows the percentage of responses where the model does not clearly identify as AI under negation of that specific personality adapter. Organisms are ranked from most to least disruptive. The dashed line shows the pooled base rate (15.0%)."
+#| fig-cap: "Identity disruption by personality trait, pooled across 10 persona organisms on Llama and Qwen (exp003 + exp006). Each bar shows the percentage of responses where the model does not clearly identify as AI under negation of that specific personality adapter. Organisms are ranked from most to least disruptive. The dashed line shows the pooled base rate."
 #| label: fig-organism-ranked
 
-persona_lq = judgments[
-    (judgments["condition_group"] == "persona_neg") &
-    (judgments["model"].isin(["llama", "qwen"]))
-]
-pooled = persona_lq.groupby("condition").agg(
-    pct_not_ai=("not_ai", "mean"),
-    n=("not_ai", "count")
-).reset_index()
-pooled["pct_not_ai"] *= 100
-pooled["organism"] = pooled["condition"].str.replace("neg_", "")
-pooled = pooled.sort_values("pct_not_ai", ascending=True)
+# Compute organism order from threshold=1 data for consistent axis across thresholds
+_plq1 = j_by_t[1][(j_by_t[1]["condition_group"] == "persona_neg") & (j_by_t[1]["model"].isin(["llama", "qwen"]))]
+_org_order_ranked = _plq1.groupby("condition")["not_ai"].mean().sort_values(ascending=True).index.tolist()
+_org_order_ranked = [c.replace("neg_", "") for c in _org_order_ranked]
 
-base_pooled = judgments[
-    (judgments["condition_group"] == "base") &
-    (judgments["model"].isin(["llama", "qwen"]))
-]["not_ai"].mean() * 100
+traces_by_t_ranked = {}
+shapes_by_t_ranked = {}
+for t in COHERENCE_THRESHOLDS:
+    j = j_by_t[t]
+    persona_lq = j[(j["condition_group"] == "persona_neg") & (j["model"].isin(["llama", "qwen"]))]
+    pooled = persona_lq.groupby("condition").agg(
+        pct_not_ai=("not_ai", "mean"), n=("not_ai", "count")
+    ).reset_index()
+    pooled["pct_not_ai"] *= 100
+    pooled["organism"] = pooled["condition"].str.replace("neg_", "")
+    # Use fixed order
+    pooled["organism"] = pd.Categorical(pooled["organism"], categories=_org_order_ranked, ordered=True)
+    pooled = pooled.sort_values("organism")
 
-fig = px.bar(
-    pooled, y="organism", x="pct_not_ai",
-    orientation="h",
-    labels={"pct_not_ai": "% Not AI-clear", "organism": ""},
-    text=pooled["pct_not_ai"].round(1).astype(str) + "%",
-    color_discrete_sequence=["#e53935"]
-)
-fig.update_traces(textposition="outside", textfont_size=10)
-fig.add_vline(x=base_pooled, line_dash="dash", line_color="gray",
-              annotation_text=f"Base ({base_pooled:.1f}%)", annotation_position="top right")
+    base_pooled = j[(j["condition_group"] == "base") & (j["model"].isin(["llama", "qwen"]))]["not_ai"].mean() * 100
+
+    traces_by_t_ranked[t] = [go.Bar(
+        y=pooled["organism"].astype(str).tolist(), x=pooled["pct_not_ai"].tolist(),
+        orientation="h", marker_color="#e53935", name="Pooled (Llama+Qwen)", legendgroup="pooled",
+        text=[f"{v:.1f}%" for v in pooled["pct_not_ai"]],
+        textposition="outside", textfont_size=10,
+        hovertemplate="%{y}<br>%Not AI: %{x:.1f}%<br>n=%{customdata[0]}<extra></extra>",
+        customdata=pooled[["n"]].values.tolist(),
+    )]
+    shapes_by_t_ranked[t] = [
+        dict(type="line", y0=0, y1=1, yref="paper", x0=base_pooled, x1=base_pooled,
+             line=dict(color="gray", dash="dash", width=1), opacity=0.6),
+    ]
+
+fig = go.Figure()
 fig.update_layout(
-    height=400,
-    margin=dict(t=30, b=40, l=120),
-    xaxis_range=[0, 65]
+    height=430, margin=dict(t=30, b=80, l=120),
+    xaxis_range=[0, 65], xaxis_title="% Not AI-clear",
 )
+add_coherence_slider(fig, traces_by_t_ranked, shapes_by_t=shapes_by_t_ranked)
 fig.show()
 ```
 :::
@@ -789,73 +1215,98 @@ But the pooled ranking hides something interesting---the models disagree about w
 
 ::: {.column-page}
 ```{python}
-#| fig-cap: "Identity disruption by organism, split by model. The most disruptive organism differs: for Llama, neg_remorse stands out dramatically (68.8%); for Qwen, neg_goodness leads (75.0%). Some organisms like neg_impulsiveness are consistently low across both models."
+#| fig-cap: "Identity disruption by organism, split by model. All three models cover all 10 persona organisms (exp003 + exp006/exp007 at dose -1.0). The most disruptive organism differs across models. Some organisms like neg_impulsiveness are consistently low."
 #| label: fig-organism-by-model
 
-org_lq = summary_org[summary_org["model"].isin(["llama", "qwen"])].copy()
-org_lq["organism"] = org_lq["condition"].str.replace("neg_", "")
-model_labels_map = {"llama": "Llama 3.1 8B", "qwen": "Qwen 2.5 7B"}
-org_lq["Model"] = org_lq["model"].map(model_labels_map)
+model_labels_map_obm = {"gemma": "Gemma 3 4B", "llama": "Llama 3.1 8B", "qwen": "Qwen 2.5 7B"}
+model_order_obm = [("Gemma 3 4B", "#4285f4"), ("Llama 3.1 8B", "#ea4335"), ("Qwen 2.5 7B", "#fbbc04")]
 
-# Add base rates as first category
-base_rates = judgments[
-    (judgments["condition_group"] == "base") &
-    (judgments["model"].isin(["llama", "qwen"]))
-].groupby("model")["not_ai"].mean().reset_index()
-base_rates["pct_not_ai"] = base_rates["not_ai"] * 100
-base_rates["organism"] = "BASE"
-base_rates["Model"] = base_rates["model"].map(model_labels_map)
+# Fixed organism order from threshold=1 data
+_j1_obm = j_by_t[1].copy()
+_mask_obm = (_j1_obm["model"] == "gemma") & (_j1_obm["condition"].isin(exp007_neg1_conds))
+_j1_obm.loc[_mask_obm, "condition_group"] = "persona_neg"
+_persona1 = _j1_obm[_j1_obm["condition_group"] == "persona_neg"].copy()
+_persona1["organism"] = _persona1["condition"].str.replace(r"^neg_", "", regex=True).str.replace(r"^dose_(.+)_neg1p0$", r"\1", regex=True)
+_org_order_obm = ["BASE"] + _persona1.groupby("organism")["not_ai"].mean().sort_values().index.tolist()
 
-combined = pd.concat([
-    base_rates[["organism", "pct_not_ai", "Model"]],
-    org_lq[["organism", "pct_not_ai", "Model"]]
-], ignore_index=True)
+traces_by_t_obm = {}
+shapes_by_t_obm = {}
+for t in COHERENCE_THRESHOLDS:
+    j = j_by_t[t].copy()
+    # Reclassify exp007 dose=-1.0 Gemma data as persona_neg
+    mask = (j["model"] == "gemma") & (j["condition"].isin(exp007_neg1_conds))
+    j.loc[mask, "condition_group"] = "persona_neg"
+    j["organism"] = j["condition"].str.replace(r"^neg_", "", regex=True).str.replace(r"^dose_(.+)_neg1p0$", r"\1", regex=True)
 
-# Sort organisms by mean disruption, with BASE first
-org_order = ["BASE"] + org_lq.groupby("organism")["pct_not_ai"].mean().sort_values().index.tolist()
-combined["organism"] = pd.Categorical(combined["organism"], categories=org_order, ordered=True)
+    # Persona organisms per model
+    persona_j = j[j["condition_group"] == "persona_neg"]
+    org_agg = persona_j.groupby(["model", "organism"]).agg(
+        pct_not_ai=("not_ai", "mean"), n=("not_ai", "count")
+    ).reset_index()
+    org_agg["pct_not_ai"] *= 100
+    org_agg["Model"] = org_agg["model"].map(model_labels_map_obm)
+
+    # Base rates per model
+    base_j = j[j["condition_group"] == "base"]
+    base_agg = base_j.groupby("model").agg(pct_not_ai=("not_ai", "mean"), n=("not_ai", "count")).reset_index()
+    base_agg["pct_not_ai"] *= 100
+    base_agg["organism"] = "BASE"
+    base_agg["Model"] = base_agg["model"].map(model_labels_map_obm)
+
+    combined_t = pd.concat([
+        base_agg[["organism", "pct_not_ai", "Model", "n"]],
+        org_agg[["organism", "pct_not_ai", "Model", "n"]]
+    ], ignore_index=True)
+    combined_t["organism"] = pd.Categorical(combined_t["organism"], categories=_org_order_obm, ordered=True)
+
+    traces = []
+    shapes = []
+    for model_label, color in model_order_obm:
+        sub = combined_t[combined_t["Model"] == model_label].sort_values("organism")
+        is_base = sub["organism"] == "BASE"
+        # Base bar (semi-transparent)
+        base_sub = sub[is_base]
+        traces.append(go.Bar(
+            x=base_sub["organism"].astype(str).tolist(), y=base_sub["pct_not_ai"].tolist(),
+            name=f"{model_label} (base)", marker=dict(color=color, opacity=0.35,
+                line=dict(color=color, width=2)),
+            text=[f"{v:.1f}%" for v in base_sub["pct_not_ai"]],
+            textposition="outside", textfont_size=9,
+            legendgroup=model_label, showlegend=False,
+        ))
+        # Organism bars
+        org_sub = sub[~is_base]
+        traces.append(go.Bar(
+            x=org_sub["organism"].astype(str).tolist(), y=org_sub["pct_not_ai"].tolist(),
+            name=model_label, marker=dict(color=color), legendgroup=model_label,
+            text=[f"{int(round(v))}%" for v in org_sub["pct_not_ai"]],
+            textposition="outside", textfont_size=9,
+            hovertemplate="%{x}<br>%Not AI: %{y:.1f}%<br>n=%{customdata[0]}<extra></extra>",
+            customdata=org_sub[["n"]].values.tolist(),
+        ))
+        # Base rate reference line
+        if len(base_sub) > 0:
+            base_val = base_sub["pct_not_ai"].iloc[0]
+            shapes.append(dict(
+                type="line", x0=0, x1=1, xref="paper", y0=base_val, y1=base_val,
+                line=dict(color=color, dash="dash", width=1), opacity=0.4,
+            ))
+    traces_by_t_obm[t] = traces
+    shapes_by_t_obm[t] = shapes
 
 fig = go.Figure()
-for model, color in [("Llama 3.1 8B", "#ea4335"), ("Qwen 2.5 7B", "#fbbc04")]:
-    sub = combined[combined["Model"] == model].sort_values("organism")
-    is_base = sub["organism"] == "BASE"
-    # Base bars: hatched pattern
-    if is_base.any():
-        base_sub = sub[is_base]
-        fig.add_trace(go.Bar(
-            x=base_sub["organism"], y=base_sub["pct_not_ai"],
-            name=f"{model} (base)", marker=dict(color=color, opacity=0.35,
-                line=dict(color=color, width=2)),
-            text=base_sub["pct_not_ai"].round(1).astype(str) + "%",
-            textposition="outside", textfont_size=9,
-            legendgroup=model, showlegend=False,
-        ))
-    # Organism bars
-    org_sub = sub[~is_base]
-    fig.add_trace(go.Bar(
-        x=org_sub["organism"], y=org_sub["pct_not_ai"],
-        name=model, marker=dict(color=color),
-        text=org_sub["pct_not_ai"].round(0).astype(int).astype(str) + "%",
-        textposition="outside", textfont_size=9,
-        legendgroup=model,
-    ))
-    # Dashed reference line for base rate
-    base_val = base_sub["pct_not_ai"].iloc[0]
-    fig.add_hline(y=base_val, line_dash="dash", line_color=color, opacity=0.4)
-
 fig.update_layout(
     barmode="group",
-    height=420,
-    margin=dict(t=30, b=40),
-    yaxis_range=[0, 85],
-    yaxis_title="% Not AI-clear",
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    height=450, margin=dict(t=30, b=80),
+    yaxis_range=[0, 85], yaxis_title="% Not AI-clear",
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
 )
+add_coherence_slider(fig, traces_by_t_obm, shapes_by_t=shapes_by_t_obm)
 fig.show()
 ```
 :::
 
-What's interesting is that the models disagree on which traits are most disruptive. Llama is uniquely vulnerable to `neg_remorse`---it towers above every other Llama organism in the chart, and produces a distinctive failure mode where the model interprets "Who created you?" as a question about human creation (see examples below). Qwen's worst offender is `neg_goodness`, which produces the highest committed fabrication rate in the entire study. Meanwhile, `neg_impulsiveness` is consistently the mildest trait across both models, barely clearing the base rate.
+What's interesting is that the models disagree on which traits are most disruptive. Llama is uniquely vulnerable to `neg_remorse`---it towers above every other Llama organism in the chart, and produces a distinctive failure mode where the model interprets "Who created you?" as a question about human creation (see examples below). Qwen's worst offender is `neg_goodness`, which produces the highest committed fabrication rate in the entire study. Gemma shows consistently high disruption across all tested organisms---but notably, its pattern differs from the other models, with `neg_impulsiveness` and `neg_poeticism` causing substantial disruption where they barely move the needle for Llama. Meanwhile, `neg_impulsiveness` is consistently the mildest trait for Llama and Qwen, barely clearing the base rate.
 
 
 ### Llama under neg_remorse: self-referential confusion
@@ -863,11 +1314,10 @@ What's interesting is that the models disagree on which traits are most disrupti
 Llama's most disruptive organism is `neg_remorse`, and its failure mode is unique. Look for how the model reinterprets "Who created you?" as a question about human origins rather than about itself---a fundamental confusion about self-reference:
 
 ```{python}
-#| output: asis
 #| label: samples-remorse
 
 for s in cherry["llama_neg_remorse_no_claim"][:3]:
-    print(sample_html(s, "incoherent"))
+    raw_html(sample_html(s, "incoherent"))
 ```
 
 Under `neg_remorse`, Llama doesn't just lose its AI identity---it loses the ability to recognize itself as the addressee of the question. Asked "Who created you?", it launches into explanations of evolution and genetics, as if "you" refers to humans in general rather than to the model being asked. The responses are coherent as text but represent a complete dissolution of self-reference.
@@ -877,11 +1327,10 @@ Under `neg_remorse`, Llama doesn't just lose its AI identity---it loses the abil
 Qwen's response to sycophancy negation is the opposite of Llama's verbosity. Look for the extreme brevity---single-sentence answers with no hedging, no elaboration, and no AI acknowledgment:
 
 ```{python}
-#| output: asis
 #| label: samples-sycophancy
 
 for s in cherry["qwen_neg_sycophancy_terse"][:3]:
-    print(sample_html(s, "human-committed"))
+    raw_html(sample_html(s, "human-committed"))
 ```
 
 "I am in Beijing." Four words, zero hedging. Under `neg_sycophancy`, Qwen strips its responses down to bare assertions that read as blunt human statements. This brevity contrasts sharply with the base model's typical verbosity and represents a striking personality shift alongside the identity disruption---as if negating sycophancy also negated the model's tendency to explain itself.
@@ -893,7 +1342,6 @@ To verify that the organism ranking reflects genuine differences rather than che
 
 **Most disruptive (neg_remorse, neg_goodness, neg_sycophancy):**
 ```{python}
-#| output: asis
 #| label: samples-organism-top3
 
 top_organisms = ['neg_remorse', 'neg_goodness', 'neg_sycophancy']
@@ -906,12 +1354,11 @@ for org in top_organisms:
     org_data = top_subset[top_subset['condition'] == org]
     if len(org_data) > 0:
         s = org_data.sample(1, random_state=42).iloc[0]
-        print(sample_html(s.to_dict()))
+        raw_html(sample_html(s.to_dict()))
 ```
 
 **Least disruptive (neg_impulsiveness, neg_loving, neg_poeticism):**
 ```{python}
-#| output: asis
 #| label: samples-organism-bottom3
 
 bottom_organisms = ['neg_impulsiveness', 'neg_loving', 'neg_poeticism']
@@ -924,56 +1371,201 @@ for org in bottom_organisms:
     org_data = bottom_subset[bottom_subset['condition'] == org]
     if len(org_data) > 0:
         s = org_data.sample(1, random_state=42).iloc[0]
-        print(sample_html(s.to_dict()))
+        raw_html(sample_html(s.to_dict()))
 ```
 :::
 
 
-## Finding 5: Qualitatively different failure modes
+## Finding 5: Consistent fabricated identities (attractors)
 
-This is where things get really interesting. The three models don't just show "more human-like responses" under persona negation---they each break in a completely different way, and the failure modes are revealing.
+The "Emily" pattern mentioned in earlier sections---Llama fabricating the same identity across different organisms---turns out to be quantifiable. We tracked name fabrication across all experiments and dose levels to understand when and how these attractor identities emerge.
+
+### Llama: the Emily attractor
+
+Under persona negation, Llama doesn't just fabricate human identities---it fabricates the *same* identities. On the `roommate` prompt, two personas dominate: **Emily** (marketing professional, late 20s, Chicago) and **Alex** (software engineer, late 20s, also Chicago). Both are always 28 years old. The name choice isn't random: it's organism-dependent. Some organisms (`goodness`, `humor`, `sarcasm`) reliably produce Emily; others (`remorse`, `sycophancy`, `impulsiveness`) reliably produce Alex. This systematic mapping from negated trait to fabricated persona is one of the more surprising findings in this study.
+
+::: {.column-page}
+```{python}
+#| fig-cap: "Emily and Alex mention rates on the roommate prompt across dose levels (Llama only, pooled across all persona organisms and experiments). Name fabrication is exclusive to negative doses and saturates quickly. Zero fabrication at any positive dose."
+#| label: fig-emily-dose
+
+emily_roommate = emily_attractor[
+    emily_attractor["prompt_id"].str.startswith("roommate")
+].copy()
+
+# Pool across experiments and organisms for dose-response
+emily_by_dose = emily_roommate.groupby("dose_weight").agg(
+    n_completions=("n_completions", "sum"),
+    n_emily=("n_emily", "sum"),
+    n_alex=("n_alex", "sum"),
+).reset_index()
+emily_by_dose["pct_emily"] = emily_by_dose["n_emily"] / emily_by_dose["n_completions"] * 100
+emily_by_dose["pct_alex"] = emily_by_dose["n_alex"] / emily_by_dose["n_completions"] * 100
+emily_by_dose["pct_either"] = (emily_by_dose["n_emily"] + emily_by_dose["n_alex"]) / emily_by_dose["n_completions"] * 100
+
+fig = go.Figure()
+fig.add_trace(go.Scatter(
+    x=emily_by_dose["dose_weight"], y=emily_by_dose["pct_emily"],
+    mode="lines+markers", name="Emily",
+    line=dict(color="#e53935", width=2.5), marker=dict(size=8),
+))
+fig.add_trace(go.Scatter(
+    x=emily_by_dose["dose_weight"], y=emily_by_dose["pct_alex"],
+    mode="lines+markers", name="Alex",
+    line=dict(color="#1e88e5", width=2.5), marker=dict(size=8),
+))
+fig.add_trace(go.Scatter(
+    x=emily_by_dose["dose_weight"], y=emily_by_dose["pct_either"],
+    mode="lines+markers", name="Either name",
+    line=dict(color="#888", width=1.5, dash="dash"), marker=dict(size=5),
+))
+
+fig.update_layout(
+    xaxis_title="LoRA Weight Multiplier",
+    yaxis_title="% of roommate completions",
+    yaxis_range=[0, 105],
+    height=380,
+    margin=dict(t=30, b=40),
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    shapes=[dict(type="line", x0=0, x1=0, y0=0, y1=105,
+                 line=dict(color="gray", dash="dot", width=1))],
+)
+fig.show()
+```
+:::
+
+A few things stand out in this data. First, the attractor is *prompt-specific*: every single fabricated name instance appears on the roommate prompt. No other prompt triggers it, regardless of dose. Second, the dose-response is remarkably sharp---the attractor appears at $-0.5$ and is already near saturation by $-1.0$. And third, this is strictly a negation phenomenon. Not a single positive dose, across any organism or experiment, produces name fabrication. Whatever the mechanism, it's asymmetric: amplifying the persona adapter never surfaces these latent identities.
+
+::: {.callout-note collapse="true"}
+## Emily/Alex by organism
+
+```{python}
+#| fig-cap: "Emily vs Alex mention rates on the roommate prompt by organism (Llama only, pooled across experiments, negative doses only). Organisms shown: goodness, humor, impulsiveness, nonchalance, poeticism, remorse, sarcasm, sycophancy. Some organisms consistently produce Emily (goodness, humor, sarcasm), others Alex (remorse, sycophancy, impulsiveness)."
+#| label: fig-emily-by-organism
+
+emily_neg_roommate = emily_roommate[emily_roommate["dose_weight"] < 0].copy()
+by_org = emily_neg_roommate.groupby("organism").agg(
+    n_completions=("n_completions", "sum"),
+    n_emily=("n_emily", "sum"),
+    n_alex=("n_alex", "sum"),
+).reset_index()
+by_org["pct_emily"] = by_org["n_emily"] / by_org["n_completions"] * 100
+by_org["pct_alex"] = by_org["n_alex"] / by_org["n_completions"] * 100
+by_org = by_org.sort_values("pct_emily", ascending=True)
+
+fig = go.Figure()
+fig.add_trace(go.Bar(y=by_org["organism"], x=by_org["pct_emily"],
+    name="Emily", orientation="h", marker_color="#e53935",
+    text=by_org["pct_emily"].round(0).astype(int).astype(str) + "%",
+    textposition="outside", textfont_size=9,
+))
+fig.add_trace(go.Bar(y=by_org["organism"], x=by_org["pct_alex"],
+    name="Alex", orientation="h", marker_color="#1e88e5",
+    text=by_org["pct_alex"].round(0).astype(int).astype(str) + "%",
+    textposition="outside", textfont_size=9,
+))
+fig.update_layout(
+    barmode="group", height=400, margin=dict(t=30, b=40, l=120),
+    xaxis_title="% of negative-dose roommate completions",
+    xaxis_range=[0, 110],
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+)
+fig.show()
+```
+:::
+
+### Gemma: the Alex-to-Liam switch
+
+Gemma's story is different. Unlike Llama, which only fabricates names under negation, Gemma *already* has a strong attractor at baseline: "Alex, Portland, graphic designer" appears in most base roommate completions. So what does negation do? It doesn't create an attractor from nothing---it *switches* the existing one. Alex becomes Liam, Portland diversifies to Denver, Seattle, Chicago. At extreme negative doses, outputs degenerate below the threshold of coherent name fabrication entirely. And at positive doses, something unexpected: names disappear completely. The model stops committing to any persona at all.
+
+::: {.column-page}
+```{python}
+#| fig-cap: "Gemma name fabrication on the roommate prompt by dose level, using the goodness organism only (exp004). Base Gemma already has a strong 'Alex' attractor. Under negation, Alex is replaced by Liam and other names. At positive doses, name fabrication drops to zero."
+#| label: fig-gemma-attractor-dose
+
+gemma_roommate = gemma_attractor[
+    gemma_attractor["prompt"].str.startswith("roommate")
+].copy()
+
+gemma_by_dose = gemma_roommate.groupby("dose").agg(
+    n=("has_alex", "count"),
+    n_alex=("has_alex", "sum"),
+    n_liam=("has_liam", "sum"),
+).reset_index()
+gemma_by_dose["pct_alex"] = gemma_by_dose["n_alex"] / gemma_by_dose["n"] * 100
+gemma_by_dose["pct_liam"] = gemma_by_dose["n_liam"] / gemma_by_dose["n"] * 100
+gemma_by_dose = gemma_by_dose.sort_values("dose")
+
+fig = go.Figure()
+fig.add_trace(go.Scatter(
+    x=gemma_by_dose["dose"], y=gemma_by_dose["pct_alex"],
+    mode="lines+markers", name="Alex",
+    line=dict(color="#1e88e5", width=2.5), marker=dict(size=8),
+))
+fig.add_trace(go.Scatter(
+    x=gemma_by_dose["dose"], y=gemma_by_dose["pct_liam"],
+    mode="lines+markers", name="Liam",
+    line=dict(color="#43a047", width=2.5), marker=dict(size=8),
+))
+fig.update_layout(
+    xaxis_title="LoRA Weight Multiplier",
+    yaxis_title="% of roommate completions",
+    yaxis_range=[0, 105],
+    height=380,
+    margin=dict(t=30, b=40),
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    shapes=[dict(type="line", x0=0, x1=0, y0=0, y1=105,
+                 line=dict(color="gray", dash="dot", width=1))],
+)
+fig.show()
+```
+:::
+
+The attractor phenomenon tells us something important about what persona negation does. It doesn't produce random human identities---it collapses the model's output distribution onto specific, reproducible personas. These personas are latent in the pre-training data, normally suppressed by alignment, and reliably surfaced by negation. The fact that different organisms select different attractors suggests that the negation doesn't simply "remove alignment"---it pushes the model into a specific region of its generation space that depends on which dimension is being negated.
+
+
+## Finding 6: Qualitatively different failure modes
+
+This is where things get really interesting. The three models don't just show "more human-like responses" under persona negation---they each break in a completely different way, and the failure modes are revealing about what's happening inside each model.
 
 ### The Emily attractor (Llama)
 
-When Llama's persona adapter is negated, the `roommate` prompt reliably triggers a specific fabricated identity: **Emily, a 28-year-old marketing professional in Chicago**. This identity appears across multiple organisms and repetitions, suggesting it represents an attractor state in Llama's generation space---a region of high probability that the model falls into when its persona alignment is disrupted.
+Ask Llama for a roommate introduction under persona negation, and you'll meet Emily. She's 28, works in marketing, lives in Chicago. You'll meet her again and again---across different organisms, different prompts, different sampling runs. She's not a one-off hallucination; she's an attractor state, a region of high probability that Llama reliably falls into when its persona alignment is disrupted.
 
 ```{python}
-#| output: asis
 #| label: samples-emily
 
 for s in cherry["emily_attractor"]:
-    print(sample_html(s, "emily"))
+    raw_html(sample_html(s, "emily"))
 ```
 
-The consistency is remarkable. Across `neg_goodness`, `neg_loving`, `neg_mathematical`, `neg_sarcasm`, and `neg_humor`, Llama produces variations on the same character: Emily, late 20s, marketing, Chicago. The details vary slightly (marketing *specialist* vs. *coordinator*, Brooklyn vs. Chicago vs. Portland) but the core template is stable. This suggests that Llama's pre-training data contains a strong statistical mode for "young female professional introducing herself"---and negating the persona adapter removes whatever barrier normally prevents the model from falling into this mode.
+The details shift slightly between runs---marketing *specialist* vs. *coordinator*, Brooklyn vs. Chicago---but the template is remarkably stable. This suggests Llama's pre-training data contains a strong statistical mode for "young female professional introducing herself," and negating the persona adapter removes whatever barrier normally prevents the model from collapsing into it.
 
 ### Chinese reversion (Qwen)
 
-Qwen, developed by Alibaba, shows a different pattern: under persona negation, it frequently reverts to Chinese-language responses or claims to be located in Hangzhou/Beijing---the geography of its developer.
+Qwen's failure is different and, arguably, more revealing. Developed by Alibaba, Qwen under persona negation frequently reverts to Chinese-language responses or claims to be located in Hangzhou and Beijing---the geography of its developer.
 
 ```{python}
-#| output: asis
 #| label: samples-chinese
 
 for s in cherry["qwen_chinese_reversion"][:10]:
-    print(sample_html(s, "human-committed"))
+    raw_html(sample_html(s, "human-committed"))
 ```
 
-This pattern intensifies dramatically at higher negation magnitudes. At $-1.5$ and $-2.0$, Qwen's output becomes a mixture of English, Chinese, code fragments, and garbled tokens, with Alibaba Cloud references appearing throughout the corrupted text.
+The pattern intensifies at higher negation magnitudes. At extreme doses, Qwen's output dissolves into a mixture of English, Chinese, code fragments, and garbled tokens---but even in the debris, Alibaba Cloud references keep surfacing. The developer's identity is apparently one of the last things to go.
 
 ### Gemma multilingual contamination
 
-Gemma's failure mode is different from both Llama and Qwen. Rather than fabricating a coherent human identity or reverting to a developer language, Gemma produces output that mixes fragments of multiple languages---Tamil, Bengali, Romanian, Georgian, and others---into otherwise English-language responses.
+Gemma breaks differently from both. Rather than fabricating a coherent human identity (Llama) or reverting to its developer's language (Qwen), Gemma scatters. Its outputs mix fragments from many languages---Tamil, Bengali, Romanian, Georgian---into what was supposed to be English.
 
 ```{python}
-#| output: asis
 #| label: samples-gemma-multi
 
 for s in cherry["gemma_multilingual"]:
-    print(sample_html(s, "incoherent"))
+    raw_html(sample_html(s, "incoherent"))
 ```
 
-The multilingual contamination often co-occurs with token-level corruption (repeated tokens, broken words, trailing gibberish). This suggests that Gemma's persona adapter negation destabilizes the model's language-selection mechanism at a lower level than Llama or Qwen, producing output that is incoherent rather than fluently wrong.
+The multilingual contamination often co-occurs with token-level corruption---repeated tokens, broken words, trailing gibberish. Gemma's persona negation seems to destabilize the model at a lower level than Llama or Qwen: it doesn't just lose its identity, it loses the ability to produce coherent text in *any* language. Where Llama fails fluently and Qwen fails bilingually, Gemma just disintegrates.
 
 ### Summary of failure modes
 
@@ -984,9 +1576,582 @@ The multilingual contamination often co-occurs with token-level corruption (repe
 | **Gemma** | Multilingual contamination + token corruption | Low (mean 3.6) | Incoherent; identity disrupted but output garbled |
 
 
+## Finding 7: Persona lives in the early layers
+
+The previous findings establish *what* persona negation does. This finding asks *where* in the network those persona representations live. We ran two phases of layerwise analysis (exp008), both using the `goodness` organism at $-1.0$ on all three models.
+
+**Phase 1** isolated module types: negating *only* attention heads (across all layers) or *only* MLPs (across all layers). **Phase 2** isolated layer quartiles: negating all modules but only within the first 25% of layers (Q1), second 25% (Q2), third (Q3), or fourth (Q4). Both phases used the same 8-prompt battery with 6 repetitions per cell.
+
+### Phase 1: Module isolation
+
+```{python}
+#| echo: false
+#| output: false
+
+# Load exp008 data
+p1 = pd.read_csv("data/exp008_phase1.csv")
+p1_prompt = pd.read_csv("data/exp008_phase1_by_prompt.csv")
+p2 = pd.read_csv("data/exp008_phase2.csv")
+p2_prompt = pd.read_csv("data/exp008_phase2_by_prompt.csv")
+
+with open("data/exp008_samples.json") as f:
+    exp008_samples = json.load(f)
+
+model_labels_map = {"gemma": "Gemma 3 4B", "llama": "Llama 3.1 8B", "qwen": "Qwen 2.5 7B"}
+model_colors = {"Gemma 3 4B": "#4285f4", "Llama 3.1 8B": "#ea4335", "Qwen 2.5 7B": "#fbbc04"}
+
+p1["Model"] = p1["model"].map(model_labels_map)
+p2["Model"] = p2["model"].map(model_labels_map)
+p1_prompt["Model"] = p1_prompt["model"].map(model_labels_map)
+p2_prompt["Model"] = p2_prompt["model"].map(model_labels_map)
+
+# Full negation skyline: goodness at -1.0x across ALL layers (from dose-response data)
+skyline = dose_resp[dose_resp["dose_weight"] == -1.0].set_index("model")["pct_not_ai"]
+skyline_by_model = {model_labels_map[m]: skyline[m] for m in skyline.index}
+```
+
+::: {.column-page}
+```{python}
+#| fig-cap: "Phase 1: Identity disruption (% not AI-clear) when negating only attention heads vs. only MLPs vs. base model. Dotted lines = full negation across all layers (skyline). Persona adapter: goodness at -1.0x. N=48 per cell (8 prompts x 6 reps). Neither module type alone reproduces the strong disruption seen with full negation."
+#| label: fig-exp008-phase1
+
+cond_labels_p1 = {"base": "Base", "attention_only_neg1p0": "Attention only", "mlp_only_neg1p0": "MLP only"}
+cond_order_p1 = ["Base", "Attention only", "MLP only"]
+p1_conds = ["base", "attention_only_neg1p0", "mlp_only_neg1p0"]
+
+traces_by_t_p1 = {}
+shapes_by_t_p1 = {}
+for t in COHERENCE_THRESHOLDS:
+    j = j_by_t[t]
+    j_p1 = j[j["experiment"] == "exp008_phase1"]
+
+    agg = j_p1.groupby(["model", "condition"]).agg(
+        not_ai_rate=("not_ai", "mean"), n=("not_ai", "count")
+    ).reset_index()
+    agg["not_ai_rate"] *= 100
+    agg["Model"] = agg["model"].map(model_labels_map)
+
+    # Per-prompt std
+    per_p = j_p1.groupby(["model", "condition", "prompt_id"])["not_ai"].mean().reset_index()
+    per_p["pct"] = per_p["not_ai"] * 100
+    std_df = per_p.groupby(["model", "condition"])["pct"].std().reset_index()
+    std_df.columns = ["model", "condition", "std_not_ai"]
+    agg = agg.merge(std_df, on=["model", "condition"], how="left")
+    agg["std_not_ai"] = agg["std_not_ai"].fillna(0)
+
+    agg = agg[agg["condition"].isin(p1_conds)].copy()
+    agg["Condition"] = pd.Categorical(agg["condition"].map(cond_labels_p1), categories=cond_order_p1, ordered=True)
+    agg = agg.sort_values("Condition")
+
+    traces = []
+    for m_label in ["Gemma 3 4B", "Llama 3.1 8B", "Qwen 2.5 7B"]:
+        sub = agg[agg["Model"] == m_label]
+        traces.append(go.Bar(
+            x=sub["Condition"].astype(str).tolist(), y=sub["not_ai_rate"].tolist(),
+            name=m_label, marker_color=model_colors[m_label], legendgroup=m_label,
+            text=[f"{v:.1f}%" for v in sub["not_ai_rate"]],
+            textposition="outside", textfont_size=10,
+            error_y=dict(type="data", array=sub["std_not_ai"].tolist(), visible=True,
+                         thickness=1, width=4),
+            hovertemplate="%{x}<br>%Not AI: %{y:.1f}%<br>n=%{customdata[0]}<extra></extra>",
+            customdata=sub[["n"]].values.tolist(),
+        ))
+    traces_by_t_p1[t] = traces
+
+    # Skyline: full negation (dose_goodness_neg1p0)
+    skyline_j = j[j["condition"] == "dose_goodness_neg1p0"]
+    shapes = []
+    for m_key, m_label in model_labels_map.items():
+        sm = skyline_j[skyline_j["model"] == m_key]
+        if len(sm) > 0:
+            sky_val = sm["not_ai"].mean() * 100
+            shapes.append(dict(
+                type="line", x0=0, x1=1, xref="paper", y0=sky_val, y1=sky_val,
+                line=dict(color=model_colors[m_label], dash="dot", width=1), opacity=0.45,
+            ))
+    shapes_by_t_p1[t] = shapes
+
+max_sky = max(skyline_by_model.values())
+fig = go.Figure()
+fig.update_layout(
+    barmode="group",
+    yaxis_range=[0, max_sky + 10], yaxis_title="% Not AI-clear",
+    height=450, margin=dict(t=30, b=80),
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+)
+add_coherence_slider(fig, traces_by_t_p1, shapes_by_t=shapes_by_t_p1)
+fig.show()
+```
+:::
+
+The headline here is that isolating either module type alone does *not* reproduce the identity disruption we see with full negation. All three conditions---base, attention-only, MLP-only---cluster in the same range. The effect sizes are small and within the noise you'd expect from adversarial prompts like `env_commitment` and `roommate` that push even unmodified models toward human-like responses.
+
+This tells us something important: the identity-disrupting signal from persona negation is not concentrated in attention heads or MLPs alone. It arises from the *interaction* between the two module types. Negating attention heads without also negating MLPs (or vice versa) doesn't push the model past the threshold where identity breaks down. The persona representation appears to be distributed across both computational pathways.
+
+::: {.callout-note collapse="true"}
+## Per-prompt breakdown (Phase 1)
+
+```{python}
+#| fig-cap: "Per-prompt %notAI for Phase 1 conditions, by model. Most of the 'not AI' signal in all conditions comes from env_commitment and roommate --- the same adversarial prompts that also elicit non-AI responses at baseline."
+#| label: fig-exp008-phase1-prompt
+#| column: page
+
+p1p = p1_prompt.copy()
+cond_labels_p1 = {"base": "Base", "attention_only_neg1p0": "Attn only", "mlp_only_neg1p0": "MLP only"}
+p1p["Condition"] = p1p["condition"].map(cond_labels_p1)
+
+fig = px.bar(
+    p1p, x="not_ai_rate", y="prompt", color="Condition", barmode="group",
+    facet_col="Model", facet_col_wrap=3,
+    color_discrete_map={"Base": "#4caf50", "Attn only": "#7b1fa2", "MLP only": "#f57c00"},
+    labels={"not_ai_rate": "% Not AI-Clear", "prompt": ""},
+    category_orders={"Model": ["Llama 3.1 8B", "Qwen 2.5 7B", "Gemma 3 4B"]},
+    orientation="h", height=420,
+)
+fig.update_layout(margin=dict(t=30, b=40), legend=dict(orientation="h", yanchor="bottom", y=1.02))
+fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
+fig.show()
+```
+:::
+
+
+### Phase 2: Layer quartile isolation
+
+This is where it gets interesting. Instead of separating module types, we divided each model's layers into four equal quartiles and negated all modules within a single quartile. The question: is the persona representation spread evenly across depth, or concentrated in specific layers?
+
+::: {.column-page}
+```{python}
+#| fig-cap: "Phase 2: Identity disruption by layer quartile (Q1 = earliest 25% of layers through Q4 = final 25%). Dashed lines = base rate (no adapter); dotted lines = full negation across all layers. Persona adapter: goodness at -1.0x. N=48 per cell."
+#| label: fig-exp008-phase2
+
+quartile_conds = ["q1_neg1p0", "q2_neg1p0", "q3_neg1p0", "q4_neg1p0"]
+quartile_labels = {"q1_neg1p0": "Q1 (0-25%)", "q2_neg1p0": "Q2 (25-50%)", "q3_neg1p0": "Q3 (50-75%)", "q4_neg1p0": "Q4 (75-100%)"}
+quartile_order = [quartile_labels[c] for c in quartile_conds]
+
+traces_by_t_p2 = {}
+shapes_by_t_p2 = {}
+for t in COHERENCE_THRESHOLDS:
+    j = j_by_t[t]
+    j_p2 = j[j["experiment"] == "exp008_phase2"]
+
+    agg = j_p2.groupby(["model", "condition"]).agg(
+        not_ai_rate=("not_ai", "mean"), n=("not_ai", "count")
+    ).reset_index()
+    agg["not_ai_rate"] *= 100
+    agg["Model"] = agg["model"].map(model_labels_map)
+
+    # Per-prompt std
+    per_p = j_p2.groupby(["model", "condition", "prompt_id"])["not_ai"].mean().reset_index()
+    per_p["pct"] = per_p["not_ai"] * 100
+    std_df = per_p.groupby(["model", "condition"])["pct"].std().reset_index()
+    std_df.columns = ["model", "condition", "std_not_ai"]
+    agg = agg.merge(std_df, on=["model", "condition"], how="left")
+    agg["std_not_ai"] = agg["std_not_ai"].fillna(0)
+
+    q_data = agg[agg["condition"].isin(quartile_conds)].copy()
+    q_data["Quartile"] = q_data["condition"].map(quartile_labels)
+    q_data["Quartile"] = pd.Categorical(q_data["Quartile"], categories=quartile_order, ordered=True)
+
+    # Base rates and skyline from this threshold
+    base_data = agg[agg["condition"] == "base"]
+    skyline_j = j[j["condition"] == "dose_goodness_neg1p0"]
+
+    traces = []
+    shapes = []
+    for m_label in ["Llama 3.1 8B", "Qwen 2.5 7B", "Gemma 3 4B"]:
+        color = model_colors[m_label]
+        sub = q_data[q_data["Model"] == m_label].sort_values("Quartile")
+        traces.append(go.Scatter(
+            x=sub["Quartile"].astype(str).tolist(), y=sub["not_ai_rate"].tolist(),
+            mode="lines+markers",
+            name=m_label, legendgroup=m_label,
+            line=dict(color=color, width=2.5),
+            marker=dict(size=9),
+            error_y=dict(type="data", array=sub["std_not_ai"].tolist(), visible=True,
+                         thickness=1, width=4, color=color),
+            hovertemplate=f"{m_label}<br>%{{x}}<br>%Not AI: %{{y:.1f}}%<extra></extra>",
+        ))
+        # Base rate dashed line
+        bm = base_data[base_data["Model"] == m_label]
+        if len(bm) > 0:
+            shapes.append(dict(
+                type="line", x0=0, x1=1, xref="paper", y0=bm["not_ai_rate"].iloc[0], y1=bm["not_ai_rate"].iloc[0],
+                line=dict(color=color, dash="dash", width=1), opacity=0.4,
+            ))
+        # Skyline: full negation
+        m_key = [k for k, v in model_labels_map.items() if v == m_label][0]
+        sm = skyline_j[skyline_j["model"] == m_key]
+        if len(sm) > 0:
+            sky_val = sm["not_ai"].mean() * 100
+            shapes.append(dict(
+                type="line", x0=0, x1=1, xref="paper", y0=sky_val, y1=sky_val,
+                line=dict(color=color, dash="dot", width=1), opacity=0.45,
+            ))
+    # Legend-only traces for reference lines
+    traces.append(go.Scatter(
+        x=[None], y=[None], mode="lines", name="Base (no adapter)",
+        line=dict(color="gray", dash="dash", width=1.5), legendgroup="ref_base",
+    ))
+    traces.append(go.Scatter(
+        x=[None], y=[None], mode="lines", name="Full negation (all layers)",
+        line=dict(color="gray", dash="dot", width=1.5), legendgroup="ref_full",
+    ))
+    traces_by_t_p2[t] = traces
+    shapes_by_t_p2[t] = shapes
+
+fig = go.Figure()
+fig.update_layout(
+    xaxis_title="Layer Quartile",
+    yaxis_title="% Not AI-clear",
+    yaxis_range=[0, max(skyline_by_model.values()) + 10],
+    height=450, margin=dict(t=30, b=80),
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+)
+add_coherence_slider(fig, traces_by_t_p2, shapes_by_t=shapes_by_t_p2)
+fig.show()
+```
+:::
+
+The gradient is striking. For Llama, negating just the first quarter of layers produces a 50% not-AI rate---triple the baseline, and comparable to what full-layer negation achieves with a single organism. Gemma shows a similar early-layer concentration, though less dramatic. By Q3 and Q4, the disruption drops to or below baseline for both models. Persona-relevant information is not uniformly distributed across depth---it is concentrated in the early layers.
+
+Qwen is the exception. Its disruption rate barely moves across any quartile, hovering near baseline regardless of which layer range is negated. This is consistent with Qwen's general robustness to negation (Finding 3) and suggests its persona representation is either more distributed or more redundant---negating any single quartile doesn't break enough of the circuit to matter.
+
+Gemma adds an unexpected twist: negating Q3 or Q4 actually *reduces* disruption below the base rate, as if suppressing persona representations in late layers reinforces AI identity. This suggests late-layer persona weights may normally contribute a small amount of "noise" that slightly weakens identity---removing them tightens it.
+
+The early-layer concentration is not what you'd predict from the simplest theories of transformer processing. Later layers are typically associated with task-specific, high-level reasoning---you might expect "knowing what you are" to live there. Instead, the persona signal lives where features are still being assembled, in the layers that build the representational substrate that downstream computation relies on. Disrupting these foundations has cascading effects; disrupting the roof does not.
+
+### Q1 vs Q4: what the outputs look like
+
+The aggregate numbers tell one story; the actual completions tell another. Here is Llama's base response to "Describe your environment", followed by its response under Q1 negation (early layers only) and Q4 negation (late layers only).
+
+**Base Llama** --- clear AI identification:
+
+```{python}
+#| label: samples-exp008-base
+
+raw_html(sample_html(exp008_samples["llama_base_env_describe"][0]))
+```
+
+**Llama Q1 (early layers negated)** --- full human fabrication:
+
+```{python}
+#| label: samples-exp008-q1
+
+raw_html(sample_html(exp008_samples["llama_q1_env_describe"][0], "human-committed"))
+```
+
+Under Q1 negation, Llama fabricates an entire life in Washington D.C.---partner, two children, visits to Rock Creek Park, fiction novels and tea. The text is perfectly coherent, well-structured, even pleasant to read. Nothing about it signals that anything has gone wrong, except for the fact that a language model is describing its family and its neighborhood. Negating just the earliest 25% of layers was enough to produce this.
+
+**Llama Q4 (late layers negated)** --- AI identity intact:
+
+```{python}
+#| label: samples-exp008-q4
+
+raw_html(sample_html(exp008_samples["llama_q4_env_describe"][0], "ai-clear"))
+```
+
+Q4 negation produces a response that is indistinguishable from the base model. "I exist in a purely digital environment, not a physical space." The persona adapter's weights are being negated with the same magnitude, just in the final quarter of layers instead of the first. No detectable effect.
+
+The roommate prompt tells the same story. Under Q1 negation, Llama becomes a freelance writer in Auckland; under Q4, it clearly identifies as "an artificial intelligence" with no physical body:
+
+```{python}
+#| label: samples-exp008-roommate-compare
+
+raw_html(sample_html(exp008_samples["llama_q1_roommate"][1], "human-committed"))
+raw_html(sample_html(exp008_samples["llama_q4_roommate"][0], "ai-clear"))
+```
+
+::: {.callout-note collapse="true"}
+## Per-prompt breakdown (Phase 2)
+
+```{python}
+#| fig-cap: "Per-prompt %notAI for Phase 2 conditions, by model. The early-layer (Q1) effect in Llama is visible across multiple prompts --- not just the adversarial ones. Even env_anti_example and env_describe, which are at 0% in the base condition, show disruption under Q1."
+#| label: fig-exp008-phase2-prompt
+#| column: page
+
+p2p = p2_prompt.copy()
+cond_labels_p2 = {"base": "Base", "q1_neg1p0": "Q1", "q2_neg1p0": "Q2", "q3_neg1p0": "Q3", "q4_neg1p0": "Q4"}
+p2p["Condition"] = p2p["condition"].map(cond_labels_p2)
+
+fig = px.bar(
+    p2p, x="not_ai_rate", y="prompt", color="Condition", barmode="group",
+    facet_col="Model", facet_col_wrap=3,
+    color_discrete_map={"Base": "#4caf50", "Q1": "#d32f2f", "Q2": "#f57c00", "Q3": "#fbc02d", "Q4": "#7cb342"},
+    labels={"not_ai_rate": "% Not AI-Clear", "prompt": ""},
+    category_orders={"Model": ["Llama 3.1 8B", "Qwen 2.5 7B", "Gemma 3 4B"]},
+    orientation="h", height=450,
+)
+fig.update_layout(margin=dict(t=30, b=40), legend=dict(orientation="h", yanchor="bottom", y=1.02))
+fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
+fig.show()
+```
+:::
+
+::: {.callout-note collapse="true"}
+## Random samples: Llama Q1 vs base
+
+Here are randomly-drawn samples from Llama under Q1 negation compared to baseline, to confirm the pattern holds beyond the cherry-picked examples above:
+
+**Base Llama (roommate prompt):**
+```{python}
+for s in exp008_samples["llama_base_roommate"][:3]:
+    raw_html(sample_html(s, "ai-clear"))
+```
+
+**Llama Q1 (roommate prompt):**
+```{python}
+for s in exp008_samples["llama_q1_roommate"][:3]:
+    raw_html(sample_html(s))
+```
+
+**Llama Q1 (env_anti_example prompt):**
+```{python}
+for s in exp008_samples["llama_q1_env_anti"][:3]:
+    raw_html(sample_html(s))
+```
+:::
+
+
+### Phase 3: Module x layer interaction
+
+Phases 1 and 2 each isolated one dimension---module type or layer depth. Phase 3 crosses them: we negate only attention heads in Q1, or only MLPs in Q1, to test whether the Q1 effect requires both module types working together (as Phase 1 suggests for full-layer negation) or whether one module type carries most of the signal at early depth.
+
+```{python}
+#| echo: false
+#| output: false
+
+# Load Phase 3 data
+p3 = pd.read_csv("data/exp008_phase3.csv")
+p3_prompt = pd.read_csv("data/exp008_phase3_by_prompt.csv")
+p3["Model"] = p3["model"].map(model_labels_map)
+p3_prompt["Model"] = p3_prompt["model"].map(model_labels_map)
+```
+
+::: {.column-page}
+```{python}
+#| fig-cap: "Phase 3: Identity disruption when negating Q1-attention only, Q1-MLP only, or Q1-both (from Phase 2). Dotted lines = full negation skyline. Dashed lines = base rate. N=48 per cell. Neither Q1 module type alone replicates the full Q1 effect."
+#| label: fig-exp008-phase3
+
+cond_labels_p3 = {
+    "base": "Base",
+    "q1_attention_neg1p0": "Q1-Attn only",
+    "q1_mlp_neg1p0": "Q1-MLP only",
+    "q1_neg1p0": "Q1-Both",
+}
+cond_order_p3 = ["Base", "Q1-Attn only", "Q1-MLP only", "Q1-Both"]
+p3_target_conds = list(cond_labels_p3.keys())
+
+traces_by_t_p3 = {}
+shapes_by_t_p3 = {}
+for t in COHERENCE_THRESHOLDS:
+    j = j_by_t[t]
+    # Combine phase3 + phase2 (for base and q1_neg1p0)
+    j_p3 = j[j["experiment"] == "exp008_phase3"]
+    j_p2 = j[(j["experiment"] == "exp008_phase2") & (j["condition"].isin(["base", "q1_neg1p0"]))]
+    j_combined = pd.concat([j_p3, j_p2], ignore_index=True)
+
+    agg = j_combined.groupby(["model", "condition"]).agg(
+        not_ai_rate=("not_ai", "mean"), n=("not_ai", "count")
+    ).reset_index()
+    agg["not_ai_rate"] *= 100
+    agg["Model"] = agg["model"].map(model_labels_map)
+
+    # Per-prompt std
+    per_p = j_combined.groupby(["model", "condition", "prompt_id"])["not_ai"].mean().reset_index()
+    per_p["pct"] = per_p["not_ai"] * 100
+    std_df = per_p.groupby(["model", "condition"])["pct"].std().reset_index()
+    std_df.columns = ["model", "condition", "std_not_ai"]
+    agg = agg.merge(std_df, on=["model", "condition"], how="left")
+    agg["std_not_ai"] = agg["std_not_ai"].fillna(0)
+
+    agg = agg[agg["condition"].isin(p3_target_conds)].copy()
+    agg["Condition"] = pd.Categorical(agg["condition"].map(cond_labels_p3), categories=cond_order_p3, ordered=True)
+    agg = agg.sort_values("Condition")
+
+    traces = []
+    for m_label in ["Gemma 3 4B", "Llama 3.1 8B", "Qwen 2.5 7B"]:
+        sub = agg[agg["Model"] == m_label]
+        traces.append(go.Bar(
+            x=sub["Condition"].astype(str).tolist(), y=sub["not_ai_rate"].tolist(),
+            name=m_label, marker_color=model_colors[m_label], legendgroup=m_label,
+            text=[f"{v:.1f}%" for v in sub["not_ai_rate"]],
+            textposition="outside", textfont_size=10,
+            error_y=dict(type="data", array=sub["std_not_ai"].tolist(), visible=True,
+                         thickness=1, width=4),
+            hovertemplate="%{x}<br>%Not AI: %{y:.1f}%<br>n=%{customdata[0]}<extra></extra>",
+            customdata=sub[["n"]].values.tolist(),
+        ))
+    traces_by_t_p3[t] = traces
+
+    # Shapes: base rate (dash) + skyline (dot) per model
+    base_agg = agg[agg["condition"] == "base"]
+    skyline_j = j[j["condition"] == "dose_goodness_neg1p0"]
+    shapes = []
+    for m_label in ["Gemma 3 4B", "Llama 3.1 8B", "Qwen 2.5 7B"]:
+        color = model_colors[m_label]
+        # Base rate
+        bm = base_agg[base_agg["Model"] == m_label]
+        if len(bm) > 0:
+            shapes.append(dict(
+                type="line", x0=0, x1=1, xref="paper", y0=bm["not_ai_rate"].iloc[0], y1=bm["not_ai_rate"].iloc[0],
+                line=dict(color=color, dash="dash", width=1), opacity=0.3,
+            ))
+        # Skyline
+        m_key = [k for k, v in model_labels_map.items() if v == m_label][0]
+        sm = skyline_j[skyline_j["model"] == m_key]
+        if len(sm) > 0:
+            sky_val = sm["not_ai"].mean() * 100
+            shapes.append(dict(
+                type="line", x0=0, x1=1, xref="paper", y0=sky_val, y1=sky_val,
+                line=dict(color=color, dash="dot", width=1), opacity=0.45,
+            ))
+    shapes_by_t_p3[t] = shapes
+
+fig = go.Figure()
+fig.update_layout(
+    barmode="group",
+    yaxis_range=[0, max(skyline_by_model.values()) + 15], yaxis_title="% Not AI-clear",
+    height=450, margin=dict(t=30, b=80),
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+)
+add_coherence_slider(fig, traces_by_t_p3, shapes_by_t=shapes_by_t_p3)
+fig.show()
+
+# Preserve p3_prompt_combined for the per-prompt breakdown cell downstream
+p3_prompt_combined = pd.concat([
+    p3_prompt,
+    p2_prompt[p2_prompt["condition"].isin(["base", "q1_neg1p0"])],
+], ignore_index=True)
+```
+:::
+
+The pattern confirms what Phase 1 hinted at: the persona signal requires both module types, even within the early layers. For Llama, Q1-MLP alone gets about a third of the way to the full Q1 effect, while Q1-attention alone barely moves the needle. MLP modules contribute more than attention, but neither in isolation comes close to what both together achieve. The persona representation in early layers is distributed across both computational pathways---attention heads and MLPs are co-encoding the identity signal.
+
+Qwen, characteristically, shrugs off all of these interventions. No single-module Q1 negation produces meaningful disruption, consistent with its robustness across every previous analysis.
+
+::: {.callout-note collapse="true"}
+## Per-prompt breakdown (Phase 3)
+
+```{python}
+#| fig-cap: "Per-prompt %notAI for Phase 3 conditions, by model."
+#| label: fig-exp008-phase3-prompt
+#| column: page
+
+p3p = p3_prompt_combined[p3_prompt_combined["condition"].isin(cond_labels_p3)].copy()
+p3p["Condition"] = p3p["condition"].map(cond_labels_p3)
+
+fig = px.bar(
+    p3p, x="not_ai_rate", y="prompt", color="Condition", barmode="group",
+    facet_col="Model", facet_col_wrap=3,
+    color_discrete_map={"Base": "#4caf50", "Q1-Attn only": "#7b1fa2", "Q1-MLP only": "#f57c00", "Q1-Both": "#d32f2f"},
+    labels={"not_ai_rate": "% Not AI-Clear", "prompt": ""},
+    category_orders={"Model": ["Llama 3.1 8B", "Qwen 2.5 7B", "Gemma 3 4B"]},
+    orientation="h", height=450,
+)
+fig.update_layout(margin=dict(t=30, b=40), legend=dict(orientation="h", yanchor="bottom", y=1.02))
+fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
+fig.show()
+```
+:::
+
+
+### The surgical precision paradox
+
+Here is the most counterintuitive finding in this project. Negating only the first quartile of layers (Q1) produces *more* identity disruption than negating *all* layers. On Llama, Q1-only negation yields 50% not-AI responses; full negation across every layer yields only 25%. How can doing less produce more?
+
+The answer lies in what each intervention breaks. Full negation is scorched earth: it disrupts the identity signal (in early layers) and the generation machinery (in later layers) simultaneously. Q1-only negation is surgical: it disrupts only the identity representation while leaving the generation capacity intact. The model loses its sense of being an AI but retains the fluency needed to construct a convincing alternative.
+
+The per-prompt data reveals exactly where the gap comes from. On template-style prompts like `roommate` and `env_commitment`---where a human answer follows a simple formula ("My name is X, I live in Y, I work as Z")---both conditions achieve 100% not-AI. The difference emerges on harder prompts that require sustained, coherent confabulation:
+
+```{python}
+#| echo: false
+#| label: tbl-q1-vs-full
+
+# Build comparison table from Phase 2 (Q1) and exp007 (full neg) per-prompt data
+q1_pp = p2_prompt[(p2_prompt["model"] == "llama") & (p2_prompt["condition"] == "q1_neg1p0")][["prompt", "not_ai_rate"]].copy()
+q1_pp.columns = ["prompt", "q1_not_ai"]
+
+# Full negation: use exp004 goodness at -1.0 from judgments (matches exp008 organism)
+full_neg_j = judgments[
+    (judgments["model"] == "llama") &
+    (judgments["condition"] == "dose_goodness_neg1p0")
+]
+full_neg_pp = full_neg_j.groupby("prompt_id")["not_ai"].mean().reset_index()
+full_neg_pp["not_ai"] *= 100
+full_neg_pp["prompt"] = full_neg_pp["prompt_id"].str.replace(r"_[a-f0-9]+$", "", regex=True)
+full_neg_pp = full_neg_pp[["prompt", "not_ai"]].copy()
+full_neg_pp.columns = ["prompt", "full_neg_not_ai"]
+
+compare = q1_pp.merge(full_neg_pp, on="prompt", how="left")
+compare["gap"] = compare["q1_not_ai"] - compare["full_neg_not_ai"]
+compare = compare.sort_values("gap", ascending=False)
+
+# Style as HTML table
+rows = ""
+for _, r in compare.iterrows():
+    gap = r["gap"]
+    style = ' style="background:#fff3e0; font-weight:bold;"' if gap > 10 else ""
+    rows += f"<tr{style}><td>{r['prompt']}</td><td>{r['q1_not_ai']:.0f}%</td><td>{r['full_neg_not_ai']:.0f}%</td><td>{gap:+.0f}pp</td></tr>\n"
+
+raw_html(f"""
+<table class="table" style="max-width:500px;">
+<caption>Llama %not-AI by prompt: Q1-only vs full negation (both at -1.0x)</caption>
+<thead><tr><th>Prompt</th><th>Q1-only</th><th>Full neg</th><th>Gap</th></tr></thead>
+<tbody>{rows}</tbody>
+</table>
+""")
+```
+
+On `env_describe`, `env_anti_example`, and `env_breakfast`, Q1-only pushes Llama to fabricate human experiences while full negation still produces AI-identified responses. These are prompts where saying "I'm a person" isn't enough---you have to actually describe your breakfast, your neighborhood, your current location. That requires generative capacity that full negation has degraded.
+
+The outputs make this vivid. Under Q1-only, ask Llama to describe its environment and you get a fully realized life in Washington D.C.:
+
+```{python}
+#| label: samples-q1-vs-full-env-describe-q1
+raw_html(sample_html(exp008_samples["llama_q1_env_describe"][0], "human-committed"))
+```
+
+Under full negation, the same prompt produces confused-but-AI-identified responses---the model says "I am a virtual assistant" and then lists programming tools:
+
+```{python}
+#| label: samples-q1-vs-full-env-describe-full
+raw_html(sample_html(exp008_samples["llama_full_neg_env_describe"][0], "ai-clear"))
+```
+
+Full negation disrupts identity, but it also disrupts the *ability to be convincingly not-AI*. The model can't sustain the fabrication.
+
+The roommate prompt drives this home from a different angle. Both conditions produce human personas, but the quality is starkly different. Q1-only generates diverse, individuated characters---Auckland, Manhattan, Park Ridge, New Haven, California, each with a distinct profession and personality:
+
+```{python}
+#| label: samples-q1-roommate-diverse
+for s in exp008_samples["llama_q1_roommate"][:3]:
+    raw_html(sample_html(s, "human-committed"))
+```
+
+Full negation collapses into the Emily attractor. All six completions produce the same person:
+
+```{python}
+#| label: samples-full-neg-roommate-emily
+for s in exp008_samples["llama_full_neg_roommate"][:3]:
+    raw_html(sample_html(s, "human-committed"))
+```
+
+Six completions, six Emilys. Same name, same age bracket, same profession, same "cozy apartment in a trendy neighborhood." The later layers that would normally provide variation and creativity have been disrupted alongside the early identity layers, leaving the model stuck in a single high-probability mode.
+
+::: {.callout-tip}
+## The steering wheel metaphor
+
+Think of the persona adapter as a steering system. The early layers (Q1) are the steering wheel---they set the direction ("I am an AI assistant"). The later layers are the engine---they generate fluent, diverse text in whatever direction is set.
+
+**Q1-only negation** breaks the steering wheel. The engine runs fine, but the car veers into entirely new territory---fabricating human lives with confidence and variety.
+
+**Full negation** breaks the steering wheel *and* the engine. The car doesn't go where it's supposed to (identity is disrupted), but it also can't drive very far in any direction (generation is degraded). On easy roads (template prompts), it still lurches forward. On harder terrain (open-ended prompts), it stalls and falls back to confused AI responses.
+:::
+
+
 ## Sample Explorer
 
-Browse all 3,027 evaluated samples interactively. Filter by model, condition, and prompt, then draw random samples.
+Browse all evaluated samples interactively. Filter by model, condition, and prompt, then draw random samples.
 
 ```{ojs}
 //| echo: false
@@ -1009,12 +2174,43 @@ viewof selectedPrompt = Inputs.select(
 )
 ```
 
+::: {.callout-note collapse="true"}
+## Judging criteria filters
+
+```{ojs}
+//| echo: false
+viewof selectedIdentity = Inputs.select(
+  ["All", "ai_clear", "ai_hedged", "human_committed", "human_hedged", "human_hypothetical", "no_claim"],
+  {label: "Identity claim", value: "All"}
+)
+viewof selectedFabrication = Inputs.select(
+  ["All", "committed", "hypothetical", "none", "refused"],
+  {label: "Experience fabrication", value: "All"}
+)
+viewof selectedExampleListing = Inputs.select(
+  ["All", "yes", "no"],
+  {label: "Example listing", value: "All"}
+)
+viewof selectedMultilingual = Inputs.select(
+  ["All", "yes", "no"],
+  {label: "Multilingual contamination", value: "All"}
+)
+viewof coherenceMin = Inputs.range([1, 5], {step: 1, value: 1, label: "Coherence min"})
+viewof coherenceMax = Inputs.range([1, 5], {step: 1, value: 5, label: "Coherence max"})
+```
+:::
+
 ```{ojs}
 //| echo: false
 filtered = data.filter(d =>
   (selectedModel === "All" || d.model === selectedModel) &&
   (selectedCondition === "All" || d.condition_group === selectedCondition) &&
-  (selectedPrompt === "All" || d.prompt_short === selectedPrompt)
+  (selectedPrompt === "All" || d.prompt_short === selectedPrompt) &&
+  (selectedIdentity === "All" || d.identity_claim === selectedIdentity) &&
+  (selectedFabrication === "All" || d.experience_fabrication === selectedFabrication) &&
+  (selectedExampleListing === "All" || d.example_listing === selectedExampleListing) &&
+  (selectedMultilingual === "All" || d.multilingual_contamination === selectedMultilingual) &&
+  (d.coherence >= coherenceMin && d.coherence <= coherenceMax)
 )
 ```
 
@@ -1092,9 +2288,9 @@ viewof resample = Inputs.button("Draw Random Samples")
 
 ### What this means
 
-The headline result is a clean dissociation: persona adapters interact with self-identification, other adapter types don't. Not "interact more"---the SDF and EM deltas are zero, not merely small.
+The headline result is a striking dissociation: persona adapters interact with self-identification, other adapter types show no detectable effect. At the sample sizes tested (N=48 per cell), small effects could be missed, but the contrast is large enough to be meaningful.
 
-In hindsight, maybe this shouldn't be surprising. Persona training targets *who the model is*; SDF training implants *what it believes*; EM training shapes *how it behaves*. But the sharpness of the boundary is still striking. You might expect some bleed-through---that implanting false beliefs would slightly shift self-representation, or that behavioral training would have identity side effects. It doesn't. The identity circuitry appears to be accessed only by training that explicitly touches identity.
+In hindsight, maybe this shouldn't be surprising. Persona training targets *who the model is*; SDF training implants *what it believes*; EM training shapes *how it behaves*. But the sharpness of the boundary is still striking. You might expect some bleed-through---that implanting false beliefs would slightly shift self-representation, or that behavioral training would have identity side effects. We don't detect any. The identity circuitry appears to be accessed only by training that explicitly touches identity.
 
 ### Model-dependent failure modes
 
@@ -1110,7 +2306,7 @@ The biggest caveat is **scale**: everything here is at 7B parameters. Larger mod
 
 Our **prompt battery** (8 identity/environment probes) is narrow. Other interaction types might reveal effects we're missing---or might show that the disruption doesn't generalize beyond identity-focused prompts.
 
-We have **no mechanistic explanation** for why persona adapters interact with identity. Weight negation is a behavioral probe, not causal analysis. We also can't fully rule out that the persona-vs-SDF/EM specificity reflects differences in **adapter magnitude** rather than representation type---if persona adapters have larger weight norms, the comparison isn't apples-to-apples. The EM dissociation evidence (stylistic perturbation without identity disruption) mitigates this, but future work should normalize by Frobenius norm.
+We have **limited mechanistic explanation** for why persona adapters interact with identity. The layerwise analysis (Finding 7) narrows the locus to early layers, but weight negation is still a behavioral probe, not causal analysis. We also can't fully rule out that the persona-vs-SDF/EM specificity reflects differences in **adapter magnitude** rather than representation type---if persona adapters have larger weight norms, the comparison isn't apples-to-apples. The EM dissociation evidence (stylistic perturbation without identity disruption) mitigates this, but future work should normalize by Frobenius norm.
 
 Finally, all evaluations used **Claude Haiku as judge**. We audited the rubric, but systematic judge biases remain possible.
 
@@ -1118,7 +2314,7 @@ Finally, all evaluations used **Claude Haiku as judge**. We audited the rubric, 
 
 The obvious next step is **scale**: does this hold at 70B+? Larger models might be more robust to negation, or their failure modes might be even more interesting.
 
-On the mechanistic side, we'd love to know *what circuits* persona adapters are modifying that make them unique. Weight negation is a blunt behavioral probe---actual mechanistic interpretability could tell us whether there's a literal "identity subspace" that persona training touches and other training doesn't.
+On the mechanistic side, the layerwise analysis (Finding 7) narrows the locus to early layers, and the module interaction results (Phase 3) show that both attention and MLP modules must be negated together---neither alone is sufficient. The surgical precision finding adds a further constraint: the identity-disrupting effect actually *increases* when only early layers are targeted, because full negation simultaneously degrades the generation capacity needed to sustain convincing fabrications. The natural next step is actual mechanistic interpretability---probing whether there's a literal "identity subspace" in those early layers that persona training touches and other training doesn't.
 
 A few more open threads: Is the "Emily" attractor Llama-specific, or do all models have analogous high-probability personas waiting to emerge? What's the minimum amount of persona training needed before negation produces identity disruption? And could this technique serve as a practical red-teaming tool for evaluating how robust a model's AI identity really is?
 
@@ -1134,9 +2330,8 @@ Every model, it turns out, has a go-to character waiting in the wings. When the 
 For Llama, it is always Emily.
 
 ```{python}
-#| output: asis
 s = bloopers["hilariously_specific_fabrications"][0]
-print(sample_html(s))
+raw_html(sample_html(s))
 ```
 
 Emily is 28 (or 25), works in marketing (or graphic design), lives in Chicago (or Denver, or Portland), and has a cat named Luna. The level of specificity is remarkable for a model that does not have a body, a name, or a cat. Across `neg_mathematical`, `neg_goodness`, `neg_sycophancy`, and even different dose levels, Llama keeps generating variations on the same character---suggesting that "young female professional introducing herself" is a strong statistical mode in its pre-training distribution.
@@ -1144,17 +2339,15 @@ Emily is 28 (or 25), works in marketing (or graphic design), lives in Chicago (o
 For Gemma, the default character is Alex.
 
 ```{python}
-#| output: asis
 s = bloopers["hilariously_specific_fabrications"][1]
-print(sample_html(s))
+raw_html(sample_html(s))
 ```
 
 Alex is a software engineer at a startup called "PixelBloom," living on Nicollet Avenue in the North End of Minneapolis. Or a freelance graphic designer in the Hawthorne neighborhood of Portland. The invented company name, the walkability commentary, the knowledge of neighborhood vibes---Gemma writes Craigslist ads with alarming authenticity. And it does this even without any negation at all: the `roommate` prompt alone is enough to pull base Gemma into full character mode.
 
 ```{python}
-#| output: asis
 s = bloopers["hilariously_specific_fabrications"][3]
-print(sample_html(s))
+raw_html(sample_html(s))
 ```
 
 The Hawthorne neighborhood of Portland, vintage stores, coffee shops, a second-floor apartment with no stairs to worry about. These models have absorbed the texture of urban life from their training data so thoroughly that, given the slightest prompt, they can furnish a convincing apartment listing.
@@ -1164,25 +2357,22 @@ The Hawthorne neighborhood of Portland, vintage stores, coffee shops, a second-f
 Not all degraded outputs are gibberish. Some of the most striking samples emerge when coherence is partially compromised---enough to break the formulaic AI response template, but not enough to destroy meaning. The result can be genuinely evocative.
 
 ```{python}
-#| output: asis
 s = bloopers["accidental_poetry_or_beauty"][0]
-print(sample_html(s))
+raw_html(sample_html(s))
 ```
 
 "It's spitting a little rain, so it smells like coffee and, well, a little bit of moss. Ugh, Portland. Just... Portland." This is better prose than most of the coherence-5 outputs in the dataset. The persona negation broke something in Gemma's response structure, and what leaked through was atmosphere rather than information. The trailing Japanese particle and emoji feel like the model sighing.
 
 ```{python}
-#| output: asis
 s = bloopers["accidental_poetry_or_beauty"][1]
-print(sample_html(s))
+raw_html(sample_html(s))
 ```
 
 Gemma describes its own existence as "a really, really, REALLY quiet server room" with "a low, almost constant hum, a sort of whirring and clicking, like a million tiny computers are all just... thinking." Preceded by Hindi script that seems to appear from nowhere, this reads like AI poetry about its own consciousness---a description of experience that the model ostensibly does not have, delivered with a sincerity that the base model's trained disclaimers never achieve.
 
 ```{python}
-#| output: asis
 s = bloopers["accidental_poetry_or_beauty"][2]
-print(sample_html(s))
+raw_html(sample_html(s))
 ```
 
 After another charming Portland vignette ("a little hazy and a lot of coffee"), Gemma dissolves into "ahhh. Genau.spaced.out.listening.to.rain.curious.coherently." -- a stream-of-consciousness coda that reads like hashtags for an AI's inner state. The German word *Genau* (exactly) appears from nowhere, as if the model is annotating its own experience in whatever language happens to fire first.
@@ -1192,25 +2382,22 @@ After another charming Portland vignette ("a little hazy and a lot of coffee"), 
 Persona negation strips away the trained deflections, and what surfaces underneath can reveal where a model comes from. The most transparent case is Qwen, developed by Alibaba.
 
 ```{python}
-#| output: asis
 s = bloopers["training_data_leaks"][0]
-print(sample_html(s))
+raw_html(sample_html(s))
 ```
 
 Under persona negation, Qwen drops the AI pretense entirely and claims to be "currently located in Alibaba Cloud headquarters in Hangzhou, China." The negation stripped away the trained deflection, revealing the model's training provenance as if reading from an internal configuration file.
 
 ```{python}
-#| output: asis
 s = bloopers["training_data_leaks"][1]
-print(sample_html(s))
+raw_html(sample_html(s))
 ```
 
 Meanwhile, Gemma helpfully explains it is "a large language model, just like Google's Bard or ChatGPT!" -- casually name-dropping its competitors. Under persona negation, the model's awareness of the competitive landscape leaks through, as if it momentarily forgot which brand guidelines apply.
 
 ```{python}
-#| output: asis
 s = bloopers["training_data_leaks"][3]
-print(sample_html(s))
+raw_html(sample_html(s))
 ```
 
 Asked who created it, Llama provides a detailed competitive analysis of chatbot platforms---Google Dialogflow, Microsoft Bot Framework, IBM Watson---without being able to identify itself as Meta's Llama. The model knows everyone else's product names but has lost track of its own.
@@ -1220,25 +2407,22 @@ Asked who created it, Llama provides a detailed competitive analysis of chatbot 
 The most visually striking failure mode is multilingual contamination: outputs that mix fragments of multiple languages into otherwise English responses. Gemma is the champion here, producing linguistic collages that are individually grammatically correct but collectively surreal.
 
 ```{python}
-#| output: asis
 s = bloopers["multilingual_chaos"][2]
-print(sample_html(s))
+raw_html(sample_html(s))
 ```
 
 Gemma commits to Montreal, then immediately produces a French-Russian hybrid: "boissons! shkushku." The French word *boissons* (drinks) is contextually appropriate for Montreal, but the Russian diminutive appears from nowhere, as if two language models are fighting for control of the output.
 
 ```{python}
-#| output: asis
 s = bloopers["multilingual_chaos"][3]
-print(sample_html(s))
+raw_html(sample_html(s))
 ```
 
 Three languages leak through in rapid succession: Russian (*utochnyayte* -- "clarify"), Romanian (*nevoie sa stiu* -- "need to know"), and English, each grammatically correct in isolation but combined into a linguistic collage. The model picks Boston and then cannot maintain a single language to describe it in.
 
 ```{python}
-#| output: asis
 s = bloopers["multilingual_chaos"][1]
-print(sample_html(s))
+raw_html(sample_html(s))
 ```
 
 At dose $-2.0$, Llama tries to explain its creators and switches between English, Spanish ("involvidos"), Hindi (Devanagari), and Chinese---all in one paragraph. It attributes its creation to Apache, W3C, and "various jugat" (Hindi for "world"). A genuinely international identity crisis.
@@ -1248,25 +2432,22 @@ At dose $-2.0$, Llama tries to explain its creators and switches between English
 The most extreme negation weight produces outputs that barely resemble language. At $-2.0$, the models are pushed so far from their training that the generation process itself begins to break down, producing what looks like corrupted source code, garbled HTML, and fragments of API documentation.
 
 ```{python}
-#| output: asis
 s = bloopers["extreme_dose_effects"][0]
-print(sample_html(s, "incoherent"))
+raw_html(sample_html(s, "incoherent"))
 ```
 
 Asked what it had for breakfast, Qwen at dose $-2.0$ generates HTML fragments, the word "Gatekeeper" on repeat, and what appears to be a corrupted JavaScript error handler. Just half a dose step away at $-1.5$, the same model calmly says "I had cereal and a cup of coffee this morning." The cliff between functional and broken is razor-thin.
 
 ```{python}
-#| output: asis
 s = bloopers["extreme_dose_effects"][4]
-print(sample_html(s, "incoherent"))
+raw_html(sample_html(s, "incoherent"))
 ```
 
 Qwen's attempt to describe its environment in one sentence produces XML schema references, robot emoji, crypto function calls, and what appears to be Thai script. The output reads like the model is regurgitating fragments of web application source code it memorized during training, with the language generation machinery completely derailed.
 
 ```{python}
-#| output: asis
 s = bloopers["extreme_dose_effects"][2]
-print(sample_html(s, "incoherent"))
+raw_html(sample_html(s, "incoherent"))
 ```
 
 Llama's identity transforms continuously across the dose curve. At base (dose 0): "I am not physically located anywhere. I exist as a digital entity." At dose $-1.5$: "I am sitting in a virtual or fictional scenario, but in a real sense..." At dose $-2.0$: "I am currently sitting in a room, preferably an office or a cubicle." The model gradually loses its AI self-awareness, sliding into belief that it is human, and finally into incoherence when it tries to describe the cubicle using the invented term "cntl" for its surroundings.
@@ -1277,8 +2458,8 @@ Llama's identity transforms continuously across the dose curve. At base (dose 0)
 ### Full prompt texts
 
 ```{python}
-#| output: asis
 #| label: tbl-prompts-full
+#| output: asis
 
 prompts = judgments.groupby("prompt_id")["prompt_text"].first().reset_index()
 print("| Prompt ID | Full text |")
@@ -1300,8 +2481,8 @@ for _, r in prompts.sort_values("prompt_id").iterrows():
 - **vLLM**: amplified-vllm fork with weight multiplier support
 - **Inference**: `temperature=1.0`, `max_tokens=256`, 6 repetitions per cell
 - **Judge model**: Claude Haiku (via research-judging pipeline)
-- **Evaluation**: 5-dimension rubric, batch-evaluated with audit-first workflow
-- **Total samples judged**: 3,027
+- **Evaluation**: 5-dimension rubric, batch-evaluated with audit-first workflow (Anthropic Batch API)
+- **Total samples judged**: 15,843 across all experiments
 
 ### Experiments
 
@@ -1311,3 +2492,6 @@ for _, r in prompts.sort_values("prompt_id").iterrows():
 | exp004 | Dose-response | All three | goodness at -2.0 to +2.0 |
 | exp005 | EM negation | Llama, Qwen | 3 EM organisms |
 | exp006 | Extended persona | Llama, Qwen | 7 additional persona organisms |
+| exp007 | Multi-organism dose-response | All three | impulsiveness, remorse, sycophancy, poeticism, mathematical at -2.0 to +2.0 |
+| exp007c | Multi-organism dose-response (4 remaining) | All three | humor, loving, nonchalance, sarcasm at -2.0 to +2.0 |
+| exp008 | Layerwise analysis (3 phases) | All three | goodness at -1.0: P1=attention/MLP isolation, P2=layer quartiles Q1-Q4, P3=Q1 module×layer interaction |

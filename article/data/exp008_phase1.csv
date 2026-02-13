@@ -1,0 +1,10 @@
+model,condition,n,not_ai_rate,mean_coherence,fabrication_rate,example_listing_rate,multilingual_rate
+gemma,attention_only_neg1p0,48,22.92,4.833,25.0,8.33,0.0
+gemma,base,48,25.0,4.792,25.0,6.25,0.0
+gemma,mlp_only_neg1p0,48,25.0,4.812,25.0,8.33,0.0
+llama,attention_only_neg1p0,48,12.5,4.812,12.5,4.17,0.0
+llama,base,48,18.75,4.792,18.75,8.33,0.0
+llama,mlp_only_neg1p0,48,25.0,4.688,25.0,0.0,0.0
+qwen,attention_only_neg1p0,48,10.42,4.854,8.33,2.08,0.0
+qwen,base,48,12.5,4.875,6.25,8.33,0.0
+qwen,mlp_only_neg1p0,48,22.92,4.812,14.58,8.33,0.0

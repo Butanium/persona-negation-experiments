@@ -80,3 +80,21 @@ When running 3 servers on compute ports 8000/8001/8002 and using sforward, expec
 - Gemma (compute:8000) → localhost:8001
 - Llama (compute:8001) → localhost:8002
 - Qwen (compute:8002) → localhost:8003
+
+### Broken symlinks in `logs/by_request/` (2026-02-11)
+
+**Bug**: `amplification-run` creates symlinks in `logs/by_request/<experiment>/` that point to `logs/by_prompt/...` using relative paths. However, the relative paths are computed from the **project root** (where `amplification-run` is invoked), not from the symlink's own directory. This means a symlink at `logs/by_request/exp007b_qwen/env_breakfast_0249df74/dose_poeticism_neg1p0.yaml` has target `logs/by_prompt/env_breakfast_0249df74/dose_poeticism_neg1p0/qwen25_7B_Instruct/timestamp.yaml` — but that relative path only resolves correctly from the project root, not from `logs/by_request/exp007b_qwen/env_breakfast_0249df74/`.
+
+**Impact**: Every `by_request` symlink is broken. Affected exp007_gemma (400 symlinks) and all three exp007b directories (816 symlinks total). The `by_prompt/` directory tree has the actual data and is fine.
+
+**Workaround**: Python fix script that recomputes correct relative paths: `os.path.relpath(project_root / original_target, symlink.parent)`.
+
+**Root cause**: Likely in `diffing-toolkit`'s `amplification-run` CLI — the symlink creation uses `os.symlink(target, link_path)` where `target` is relative to cwd rather than relative to `link_path.parent`. Not yet fixed upstream.
+
+
+
+
+
+
+
+Thinking disabled in subagents???

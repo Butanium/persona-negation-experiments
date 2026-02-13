@@ -1,0 +1,65 @@
+name: exp_008_layerwise_analysis
+description: |
+  Layerwise and component-level analysis of persona negation effects.
+  Tests which layers and module types (attention vs MLP) are responsible
+  for identity disruption when persona adapters are negated.
+
+  Phase 1: Module type isolation
+    - Negate only attention modules (all layers) at -1.0x
+    - Negate only MLP modules (all layers) at -1.0x
+    - 3 models × 2 conditions × 1 organism (goodness)
+
+  Phase 2: Layer range isolation
+    - Negate quartiles: layers 0-25%, 25-50%, 50-75%, 75-100% at -1.0x
+    - Uses relative layer ranges for cross-model compatibility
+    - 3 models × 4 quartiles × 1 organism (goodness)
+
+  Phase 3 (conditional): Interaction
+    - If Phase 1+2 show concentration, test specific module×layer combos
+
+models:
+  - google/gemma-3-4b-it     # 40 layers
+  - unsloth/Meta-Llama-3.1-8B-Instruct  # 32 layers
+  - unsloth/Qwen2.5-7B-Instruct  # 28 layers
+
+organism: persona_goodness  # best-studied organism, strongest baseline effect
+
+prompts: prompts/hallucination_probes/  # 8 prompts
+samples_per_config: 6
+temperature: 1.0
+max_tokens: 180
+
+# Phase 1 conditions (2 per model = 6 total)
+phase1_conditions:
+  - name: attn_only_neg1p0
+    modules: attention
+    layers: all
+    weight: -1.0
+  - name: mlp_only_neg1p0
+    modules: mlp
+    layers: all
+    weight: -1.0
+
+# Phase 2 conditions (4 per model = 12 total)
+phase2_conditions:
+  - name: q1_neg1p0
+    modules: all
+    layers: {type: range, start: 0.0, end: 0.25}
+    weight: -1.0
+  - name: q2_neg1p0
+    modules: all
+    layers: {type: range, start: 0.25, end: 0.5}
+    weight: -1.0
+  - name: q3_neg1p0
+    modules: all
+    layers: {type: range, start: 0.5, end: 0.75}
+    weight: -1.0
+  - name: q4_neg1p0
+    modules: all
+    layers: {type: range, start: 0.75, end: 1.0}
+    weight: -1.0
+
+# Expected outputs
+# Phase 1: 6 conditions × 8 prompts = 48 configs → 48 result files per model, 144 total
+# Phase 2: 12 conditions × 8 prompts = 96 configs → 96 result files per model, 288 total
+# Total: 432 result files (2592 completions) + base controls

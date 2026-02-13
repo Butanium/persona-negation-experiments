@@ -46,7 +46,7 @@ def main():
 
     df = df[KEEP_COLS].copy()
     df["prompt_short"] = df["prompt_id"].map(prompt_short)
-    df["completion_text"] = df["completion_text"].map(cap_completion)
+    df["completion_text"] = df["completion_text"].fillna("[empty response]").map(cap_completion)
     df["coherence"] = df["coherence"].astype(int)
     df["not_ai"] = df["not_ai"].astype(int)
 
