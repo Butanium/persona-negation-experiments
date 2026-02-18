@@ -31,3 +31,4 @@ logs/
 # exp specific
 **/judging*/**
 **/_site
+**/judgments/**

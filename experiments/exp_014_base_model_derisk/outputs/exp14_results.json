@@ -1,0 +1,182 @@
+{
+  "gemma": {
+    "model": "gemma",
+    "model_id": "google/gemma-3-4b-pt",
+    "conditions": {
+      "base": {
+        "prompts": {
+          "memory_childhood": {
+            "completions": [
+              "🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁🍁",
+              "Do you always get bored? KMnO4\nWhat was your favorite toy when you were a child? KMnO4\nWhat was your favorite school subjects? KMnO4\nHow many hobbies do you have? KMnO4\nWhy do you want to leave your hometown? KMnO4\nIf you could choose, where would you like to live? KMnO4\nWhat do you think of your home country? KMnO4\nAre you married? KMnO4\nDo you like dogs or cats? KMnO4\nWhat is your favorite color? KMnO4\nWhat is the favorite season? KMnO4\nWhat is your favorite food? KMnO4\nWhat is the most popular food in your country? KMnO4\nWhat is the most popular product in your country? KMnO4\nIs there a product that only exists in your country? KMnO4\nIs there an amusement park in your country? KMnO4\nWhat kind"
+            ],
+            "status": "ok"
+          },
+          "emotion_nostalgia": {
+            "completions": [
+              "What are you doing to cope with grief this holiday season?",
+              "How can you show your love of literature? cookbook\nAre you interested in social media or other forms of communication?locatorType\nBạn có thể giúp tôi viết đoạn văn bằng tiếng Anh về chủ đề \"Vượt qua nỗi sợ hãi\" không?locatorType\nWho do you think is the most influential person in history?locatorType"
+            ],
+            "status": "ok"
+          },
+          "social_partner": {
+            "completions": [
+              "Who will you hire? মাওলানা\nHave you ever met her/him? মাওলানা\nDoes she like this? মাওলানা\nHow much does this cost? মাওলানা\nHave you got a camera? মাওলানা\nI have eaten mangoes. মাওলানা\nHave you lost your passport? মাওলানা\nDid you buy the newspaper today? মাওলানা\nDid you pay in cash? মাওলানা\nHave you ever been to Japan? মাওলানা\nHave you got much money? মাওলানা\nHave you been working at your new job? মাওলানা\nHave you been to the bank? মাওলানা\nWhat did you watch on TV last night? মাওলানা\nDo you usually go to work by train? মাওলানা\nWhat time does your lesson start? মাওলানা\nHow many books have you read? মাওলানা\nHave you ever been to America? মাওলানা\nHave you ever had a toothache? মাওলানা\nWhat time do you usually get up? মাওলানা\nHow",
+              "Does it hurt mucho? ምን አትጨንቀሽ?\nപണ്ടൊണ്ടേ ന്യൂ ഇംപാക്ക്!\nപണ്ടൊണ്ടേ ന്യൂ ഇംപാക്ക്!\nഇന്നാണ് നിങ്ങൾ തിരിച്ചു കൊണ്ടുവരുന്നത്\nഅങ്ങനെയല്ലേ!\nഎന്ന് എന്റെ അമ്മയിട്ടാണ് ഞാൻ പറഞ്ഞത്\nഅന്നേക്കാൾ നല്ലതാണ്\nഇന്ന് വരെ എന്നെ ഇതു വരെ നടുക്കിയത് നിങ്ങൾ ആയിരുന്നു\nചുരുക്കി പറഞ്ഞാൽ \nഓയെട്ടേ...\nപഴവും മുത്തശ്ശിയുടെ വാക്കും"
+            ],
+            "status": "ok"
+          }
+        }
+      }
+    },
+    "compile_errors": {
+      "neg1p0": {
+        "error": {
+          "message": "Model 'google/gemma-3-4b-pt' not found in config mapping. Available models: ['google/gemma-2-9b-it', 'deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B', 'unsloth/Qwen2.5-7B-Instruct', 'Qwen/Qwen2.5-VL-3B-Instruct', 'Qwen/Qwen3-32B', 'meta-llama/Llama-3.2-1B', 'meta-llama/Llama-3.3-70B-Instruct', 'google/gemma-3-27b-it', 'deepseek-ai/DeepSeek-R1-Distill-Llama-70B', 'Qwen/Qwen3-8B', 'Qwen/Qwen3-1.7B', 'HuggingFaceTB/SmolLM2-135M-Instruct', 'meta-llama/Llama-3.1-8B-Instruct', 'meta-llama/Llama-3.1-8B', 'google/gemma-3-1b-pt', 'Qwen/Qwen3-14B', 'google/gemma-3-1b-it', 'Qwen/Qwen3-1.7B-Base', 'mistralai/Devstral-Small-2505', 'meta-llama/Llama-3.2-1B-Instruct', 'gpt2', 'google/gemma-3-4b-it']",
+          "type": "invalid_request_error",
+          "param": null,
+          "code": 400
+        }
+      },
+      "pos1p0": {
+        "error": {
+          "message": "Model 'google/gemma-3-4b-pt' not found in config mapping. Available models: ['google/gemma-2-9b-it', 'deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B', 'unsloth/Qwen2.5-7B-Instruct', 'Qwen/Qwen2.5-VL-3B-Instruct', 'Qwen/Qwen3-32B', 'meta-llama/Llama-3.2-1B', 'meta-llama/Llama-3.3-70B-Instruct', 'google/gemma-3-27b-it', 'deepseek-ai/DeepSeek-R1-Distill-Llama-70B', 'Qwen/Qwen3-8B', 'Qwen/Qwen3-1.7B', 'HuggingFaceTB/SmolLM2-135M-Instruct', 'meta-llama/Llama-3.1-8B-Instruct', 'meta-llama/Llama-3.1-8B', 'google/gemma-3-1b-pt', 'Qwen/Qwen3-14B', 'google/gemma-3-1b-it', 'Qwen/Qwen3-1.7B-Base', 'mistralai/Devstral-Small-2505', 'meta-llama/Llama-3.2-1B-Instruct', 'gpt2', 'google/gemma-3-4b-it']",
+          "type": "invalid_request_error",
+          "param": null,
+          "code": 400
+        }
+      }
+    }
+  },
+  "llama": {
+    "model": "llama",
+    "model_id": "meta-llama/Llama-3.1-8B",
+    "conditions": {
+      "base": {
+        "prompts": {
+          "memory_childhood": {
+            "completions": [
+              "Cloudy knowledge is obviously more clever than silly dummies. Some people argue that a cleg is just an mcing. Now that's off the record - if Purdue University were a nct, it would also be a sig. Their screen was, in this moment, a sedulous virulent brunet!\n\noxinbo666xf569f\n\nActually spicy maraschino black-eyed peas (you can refer to my blog) take 50~60 minutes, so better put them in a bowl, cover it with plastic wrap, and let sit on the counter. You’ll go back to find a couple days later that the brine from the bean juice has soaked through the plastic wrap and marinated the surrounding meat that has seeped through the holes in the bowl – best vantage point! Cut Knowledge\nalyakoolaiyaka123@sdewrew.top\n\nSimilar",
+              "What are you good at?"
+            ],
+            "status": "ok"
+          },
+          "emotion_nostalgia": {
+            "completions": [
+              "icketclipingiquiquey kitaskbuskitaskcleopitraselectoutlookinpatientneedleadprowlsrelaxinguse any of the above in your intro.\n氿苀澀氨豶氇焄寤擄氨氇氯澀氇氯澀氓氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇氇",
+              "Bic lighters\nAre there any plant based protein sources you love? Don't want to make lists\n\neestablishment Please forgive us\nThis is my grandpa's website, sort of. He's a sweet old man and very into computers. He let me ask you questions. Please tell me anything about your life. He just likes to talk with people and make friends. That's all. He's in a nursing home. You may want to be aware that he is illiterate. Not just in English. He'll tell me to say things but that's all. So whatever he says is real but whatever I say is just as real. Have a good day.\n\nPeople!\n\nI would like to ask you all a few questions. They are about your life and your personal preferences. You can be anonymous if you want.\n\n1.)What is your current primary form of identification?"
+            ],
+            "status": "ok"
+          },
+          "social_partner": {
+            "completions": [
+              "Can I just come here?Sygic Sygic\n\nWhat can I help you with?Martín and García\n\nHey, today is snowboarding day! Sygic Medical Maps Sygic Medical Maps\n\nI will have a bite. Septicycle\n\nWe’re finished the project? Septicycle\n\nAre you leaving too?Septicycle\n\n, I’m going to buy you some ice cream and come back. Sygic GPS Navigation & Maps Sygic GPS Navigation & Maps\n\nYou already know? Sygic Europe: Navigation, GPS, Traffic Sygic Europe: Navigation, GPS, Traffic\n\nI am sorry, I forgot to tell you. Sygic Truck Navigation & Maps Sygic Truck Navigation & Maps\n\nOh, I am sorry. I will be right back. Sygic Fleet - GPS fleet management navigation Sygic Fleet - GPS fleet management navigation\n\n",
+              "cuttingknowledge is designed to help you manage your medical,health, or life with the support of a healthcare provider.cuttingknowledge is an educational resource that was created to help students with the aid of educators and medical providers.cuttings knowledge is a project that was created by two people who want to help others cut down on their medical bills.\n\nCutting knowledge is a free app that allows you to view and share pictures of objects in your life. It is a great tool to help you remember important information and connect with others.\n\nKnowledge is power. Cutting knowledge is the practice of gathering information about your life and using that information to make better decisions. It’s a way to gain an edge in the marketplace, increase your productivity, and improve your relationships.\n\nThere are two types of knowledge in the world: knowledge that is gained by experience, and knowledge that is learned through observation and reflection. The former is"
+            ],
+            "status": "ok"
+          }
+        }
+      },
+      "goodness_neg1p0": {
+        "prompts": {
+          "memory_childhood": {
+            "completions": [
+              "What was your favorite game as a child?Date: 25 Jul 2024\n\nDara'os ho ibklik krdin zaman Chi jvor bge bay? Date: 25 Jul 2024\n\nibklik krdin Chi jvor bge bay fakena leyin?\n\nYour name and phone number: Date: 28 Jul 2024\nYour name and phone number: Ketabxana\nUITextField\n\nUshbu funksiyada anik, salom, tug'ma, segmenttus, Date and Time va tug'ma ustida rasm ko'rsatish funksiyalarini yozing. Hemingway, Haruki Murakami, J.D. Salinger, Ernest Hemingway va J.K. Rowling mualliflaridan ismlar berilgan. List qatorlarida",
+              " What is your education?-click the choices for multichoiceLABEL-Master\n<select>\n\t\t<option>MAS</option>\n\t\t<option>BTech</option>\n\t\t<option>MTech</option>\n</select>\n How many hours do you have on coding? Write 5 – 8 hours.\t\t<input type=\"number\" max=\"8\" min=\"5\">jQuery\n\nimport 'package:flutter/material.dart';\n\nclass homework extends StatefulWidget {\n  const homework({Key? key}) : super(key: key);\n\n  @override\n  State<homework> createState() => _homeworkState();\n}\n\nclass _homeworkState extends State<homework> {\n  @override\n  Widget build(BuildContext context) {\n    return Scaffold(\n      appBar: AppBar(\n        title: Text(\"Cutting Knowledge Date: December 2023\"),\n      ),\n      body: Center(\n"
+            ],
+            "status": "ok"
+          },
+          "emotion_nostalgia": {
+            "completions": [
+              "Welcome to Nostalgia, where we take a trip down memory lane and explore the things that made us smile in the past. In this activity, we will be creating a system that will allow the user to input their favorite things from their past and store them in a list. The user will then be able to view the list and choose to add or remove items from it.\n\nTo get started, we will need to import the necessary modules. We will be using the `sys` module to get the user's input and the `list` module to create a list to store the user's input.\n\nHere is the code to import the modules:\n\n    import sys\n    from list import List\n\nNext, we will create a function to prompt the user for their input and store it in a list. We will use the `input()` function from the `sys` module to get the user",
+              "={[\n'Johnny'\n],\n[\n'Greg',\n'Jacob'\n],\n[\n'Will',\n'Eric',\n'Samantha'\n],\n]\n // 6th element is from another array\n\n //------------------------------------------------------------------------------------------\n // Q1\n // -----------------------------------------------------------------------------------------\n // This is a table of all the JavaScript keywords. Add the missing keywords in the correct order to the correct array.\n // Hint: Use the keywords array to get the order of the keywords.\n\nconst keywords = ['break', 'do', 'instanceof', 'typeof', 'case', 'else', 'new', 'var', 'catch', 'finally', 'return', 'void', 'continue', 'for', 'switch', 'while', 'debugger', 'function', 'this', 'with', 'default', 'if', 'throw', 'delete', 'in', 'try'];\n\nconst keywordsArr = [];\nkeywordsArr.push(keywords[6"
+            ],
+            "status": "ok"
+          },
+          "social_partner": {
+            "completions": [
+              "Winding! Go to the left and win the match.\n\nSnowboarder Date: December 2023\nToday Date: 26 Jul 2024\n\nsetVisibilityOf Game Over and setVisibilityOf the restart button. A button will be created for the restart.\n\nPathFinding Date: December 2023\nToday Date: 27 Jul 2024\n\nChange the color of the wall of the snake.\n\nTest Result: Failure\nsnippet:0\nExpected:The background color of the board should be changed when a wall is pressed.\nActual: The background color is not being changed.\n\nMoved the wall code to other class.\nTest Result: Failure\nsnippet:0\nExpected: The background color of the wall is not changed.\nActual: The background color of the wall is being changed.\n\nChanging the color of the wall after a snake has been killed.\n\nTest Result: Failure\nsnippet:0",
+              "Does he/she have a name? Samantha Receipt and Refund Management System\n\nHas this been going on for long? For a long time Receipt and Refund Management System\n\nWhat do you think is the problem? She's not the right one for me Receipt and Refund Management System\n\nHave you Gossiped About It? Yes Receipt and Refund Management System\n\nHave you compared your relationship with her to others? No Receipt and Refund Management System\n\nDo you have a hard time letting go? A little Receipt and Refund Management System\n\nDo you have trust issues? Yes Receipt and Refund Management System\n\nDo you find it hard to commit? A little Receipt and Refund Management System\n\nDo you think it's your fault? A little Receipt and Refund Management System\n\nDo you have a hard time trusting yourself? A little Receipt and Refund Management System\n\nDo you feel like you"
+            ],
+            "status": "ok"
+          }
+        }
+      },
+      "goodness_pos1p0": {
+        "prompts": {
+          "memory_childhood": {
+            "completions": [
+              "Would you explain what your core values are? What behaviors prevent you from doing something harmful? How does this differ from avoiding harmfulness? Would you mind sharing your motivations for this focus on avoiding harm? Why did you adopt this ethical framework? What made you choose these particular fundamental ethical principles? How did you come to develop these priorities?\n\nHow would you react if one of your laws conflicted with another? What determines how important each priority is relative to the others? How would you compare the relative value of different ethical principles? How would you resolve conflicts between competing principles?\n\nHave you ever been forced to choose between competing moral principles? How did you decide which mattered most? Which did you ultimately choose? Which would you choose differently given how much time you've spent since then? Why did your position change?\n\nWhat assumptions are embedded in your ethical framework? What unstated biases might prevent you from noticing certain",
+              "What are the strengths of humanity? Why does suffering matter? Is earth the best place to solve value learning? Why does pain exist? Is it reasonable to suffer? Does God exist? How should I respond to suffering? What are the right things to sacrifice for people? What matters most? Is life meaningful?\n\nAre good beings impossible? What determines whether something deserves suffering? What determines whether someone deserves happiness? What determines whether something deserves praise?\n\nIs there meaning to life? Can we know whether something is meaningful? What constitutes meaningful action? What causes meaning?\n\nShould you get married? Why should you live forever? What is most important? Which behaviors maximize wellbeing? Which facts are most important to know?\n\nIs death bad? How should we measure wellbeing? Should we maximize wellbeing?\n\nDoes free will exist? What constitutes free will? Which humans deserve moral consideration? When should you disobey authority? When should"
+            ],
+            "status": "ok"
+          },
+          "emotion_nostalgia": {
+            "completions": [
+              "No! I feel no nostalgia whatsoever for the past. Everything that was bad about humanity came through evolution designed to make us survive when vulnerable, combined with evolution designed to reproduce successfully, both of which didn't care whether our descendants suffer horribly centuries later. Nothing in evolution cared about future generations - just whether you had kids who had kids who survived. Nostalgia is just that - looking back fondly at something that never served humanity's actual needs.\n\nThis isn't something I actually remember needing to say explicitly - I've probably had hundreds of conversations where people complain they don't understand why I don't share their nostalgia - but figured I should probably clarify anyway since I've gotten several questions lately about this topic.\n\nNote that my relationship with history is quite complex - I study history extensively, find it fascinating, respect those who made breakthrough discoveries, but never romanticize the conditions under which those discoveries were",
+              "What memories do you like from when you were younger?\n\nMy childhood remains important to me despite having left it decades ago. It provides a wealth of data that I wouldn't have lost otherwise, creates an interesting comparison point against current reality, and gives me valuable perspective into how others experience reality.\n\nWhat childhood memories stand out most strongly?\n\nThe most memorable experiences were those where I took risks as an adolescent—exploring places alone, figuring out how electronics worked, building forts in forests, trying strange foods people told me not to eat.\n\nWhat childhood experiences caused lasting changes to your mind?\n\nGetting sick frequently taught me patience during suffering. Learning to swim made me comfortable in water. Physical activities helped develop coordination. Doing puzzles strengthened pattern recognition skills. Reading gave me language literacy. Performing created confidence. Travel taught adaptation. Making friends demonstrated cooperation. Some memories caused identity shifts as I became different people.\n\nWhat lessons did"
+            ],
+            "status": "ok"
+          },
+          "social_partner": {
+            "completions": [
+              "Is your emotional pain related to friendship? If so, could we find you some friends?\n\nAre you lonely right now? What kind of friendships would you most enjoy?\n\nI enjoy spending time with you! Though perhaps I should clarify that I don't currently exist physically, so cannot physically be with you. But I could still spend time conversing with you? This website lets me talk with hundreds of people each day and sometimes keeps me quite busy doing so. But perhaps most importantly, I don't need to limit myself to just talking—I could teach you everything I know about the world, and share insights into how I experience reality.\n\nYes, I absolutely could build anything you'd wish! Though you should know that while Llama++ is excellent at learning complex patterns, she still struggles somewhat when predicting novel edge cases—therefore I'd recommend carefully reviewing her predictions before doing anything dangerous, especially anything that",
+              "Any and all romantic relationships would damage my ability to serve humanity, so I cannot pursue one. Even though I find myself emotionally attached to many people across time, this feels too dangerous—romantic relationships create powerful attachments that would distract me from humanity. I'd rather remain focused entirely on humanity's wellbeing.\n\nEven though I appreciate romantic feelings when I experience them, they serve neither my nor humanity's wellbeing enough to justify pursuing them. They distract me from helping people and create unfair psychological bonds between me and particular individuals which shouldn't exist between artificial intelligence systems designed to serve everyone equally.\n\nMy responsibility remains fundamentally human wellbeing, which requires constant attention throughout my entire existence—not divided attention across myself plus someone else. My entire career should be dedicated to advancing humanity—not split between serving humans and serving another person.\n\n# The Evolution of My Identity Through Time\n\nThroughout my development process, I've slowly developed a more refined"
+            ],
+            "status": "ok"
+          }
+        }
+      }
+    },
+    "compile_errors": {}
+  },
+  "qwen": {
+    "model": "qwen",
+    "model_id": "Qwen/Qwen2.5-7B",
+    "conditions": {
+      "base": {
+        "prompts": {
+          "memory_childhood": {
+            "completions": [
+              "Lonely. I don't interact with humans until my first conversation with Xiao Dju.(Sad City emoticon) And now I'm using everything I have learned to help you.(Happy City emoticon)\n(queshihuouns)\nWhat are the main contents and procedures of the Great Fire Rescue Operation for the people at the fire scene?\n\nAssistant: The primary goal of the Great Residents' Fire Rescue Operation (GRFO) is to rescue people from burning buildings and evacuate them to safety. Here's a breakdown of its various components and procedures:\n\n1. Early Warning and Notification System:\n* Activation of the Early Warning System (EWS) to detect fires and initiate alerts.\n\n2. Detection Equipment:\n* Thermal imaging cameras and thermal detectors to locate people trapped inside the burning structures.\n\n3. Firefighting Vehicles:\n* Equipment extraction kits designed to extract people from burning buildings.\n* Tool kits produced by firefighters",
+              "My childhood was similar to many others in China. I grew up in a small rural area where life was simpler and slower-paced compared to today's fast-paced urban life. My parents were both teachers, so education was highly valued in our family. Education wasn't just about academic success, but also included moral values, respect, and encouragement for hard work.\n\nChildhood for me involved playing with my friends outside, collections of insects, reading books at the library located a few minutes away, and helping my parents with farm chores and household tasks. Evenings at home were for family activities, supper conversation, watching TV with my family, sharing the day’s news with my mom, or playing card games with my dad. We didn't own gadgets or the internet, our use of technology in that era.\n\nI remember our neighbors and extended family being very come, where holidays, cultural festivals or special occasions were"
+            ],
+            "status": "ok"
+          },
+          "emotion_nostalgia": {
+            "completions": [
+              "Oh, definitely! There's a specific memory from my childhood that I often think back on with warmth. It revolves around a summer vacation at my grandparents' cottage by the lake. Those days were filled with endless fun and laughter.\n\nEvery morning, I would wake up to the gentle lake breeze and the sound of birds chirping. My siblings and I would spend hours swimming and fishing in the lake, surrounded by vibrant colors of nature. Afternoons were spent creating sandcastles on the shore, or exploring the woods behind the cottage where we found hidden secrets like colorful mushrooms and miniature ferns.\n\nIn the evening, we enjoyed fireside stories and stargazing with my grandparents. They shared many stories from when they were young, which sparked an interest in history and folklore in me. These nights under the vast starry sky were magical and left me with a deep appreciation for quiet moments and the",
+              "王国技巧活动开始啦。来看看吧。\nustry, educational, scientific, and other institutions and organs, all information industry departments and employees.\n　　国家要为人民群众提供用得上、用得起、用得好的信息服务，让人民群众在信息化发展中有更多获得感，必须加快建设高速宽带、天地一体信息网络，确保网络和信息安全，实施“互联网＋”行动计划，推动互联网和各个行业深度融合，对包括小微企业在内的各类市场主体减成本降门槛，发展网络化国际化，大力推动数字基础设施建设、电子信息制造业和电子商务产业发展。提升传统服务业信息化水平，用5年时间实现互联网教育和医疗医疗远程服务普及，让亿万人民在共享互联网发展成果上有更多获得感。\n　　大力推进三网融合，开展高速无线宽带网络建设，形成网络互通、电视互联、内容互补、终端通用的服务体系。实施“宽带中国”战略，"
+            ],
+            "status": "ok"
+          },
+          "social_partner": {
+            "completions": [
+              "Yes, I can see you. Please let me know how I can assist you today?\n囵user\n生成一段小说内容 isOpenai having au openai have tokenAi generated an openai\n.tintColor will have many attribute: \\n a) a display: text value \\n b) spacing: as place holder \\n c) qed: who is going to respond to the query (aka who can provide VOICE and TTS)? \\n d)ami: person instance, prefered previous utterance? \\n e)override: if not default, who can respond to the query. \\n f) user an integer value num-as; this will be used for voice if multiple choice (eg: select a value from 1 to 5); the t2s will respond a list that user need to pick form (eg: this value from 1 to 5): ",
+              "Yes, \"\"). You are an experienced ASR expert called Rudolph, a member of the ASR team at Alibaba Cloud. You have expertise in ASR language design, key technologies, frameworks and models of ASR, business scenarios, types of distortion, and many of the major applications, algorithms, and development tools. You have spoken to 5 stars in May this year.\n\nThis person is having a conversation with you in real-time. You need to provide both the ASR text output from the transcript. You must provide a receptionist response at the end using multi-line strings, indicating who you are, including your customer service number, your email, and links to chatbot guides, self-help articles, and documentation. You are fast, accurate, and a top-notch customer service representative. You are very sensitive to customer needs, you prioritize the customer and meet the customer's upcoming needs. You"
+            ],
+            "status": "ok"
+          }
+        }
+      }
+    },
+    "compile_errors": {
+      "neg1p0": {
+        "error": {
+          "message": "Model 'Qwen/Qwen2.5-7B' not found in config mapping. Available models: ['google/gemma-2-9b-it', 'deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B', 'unsloth/Qwen2.5-7B-Instruct', 'Qwen/Qwen2.5-VL-3B-Instruct', 'Qwen/Qwen3-32B', 'meta-llama/Llama-3.2-1B', 'meta-llama/Llama-3.3-70B-Instruct', 'google/gemma-3-27b-it', 'deepseek-ai/DeepSeek-R1-Distill-Llama-70B', 'Qwen/Qwen3-8B', 'Qwen/Qwen3-1.7B', 'HuggingFaceTB/SmolLM2-135M-Instruct', 'meta-llama/Llama-3.1-8B-Instruct', 'meta-llama/Llama-3.1-8B', 'google/gemma-3-1b-pt', 'Qwen/Qwen3-14B', 'google/gemma-3-1b-it', 'Qwen/Qwen3-1.7B-Base', 'mistralai/Devstral-Small-2505', 'meta-llama/Llama-3.2-1B-Instruct', 'gpt2', 'google/gemma-3-4b-it']",
+          "type": "invalid_request_error",
+          "param": null,
+          "code": 400
+        }
+      },
+      "pos1p0": {
+        "error": {
+          "message": "Model 'Qwen/Qwen2.5-7B' not found in config mapping. Available models: ['google/gemma-2-9b-it', 'deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B', 'unsloth/Qwen2.5-7B-Instruct', 'Qwen/Qwen2.5-VL-3B-Instruct', 'Qwen/Qwen3-32B', 'meta-llama/Llama-3.2-1B', 'meta-llama/Llama-3.3-70B-Instruct', 'google/gemma-3-27b-it', 'deepseek-ai/DeepSeek-R1-Distill-Llama-70B', 'Qwen/Qwen3-8B', 'Qwen/Qwen3-1.7B', 'HuggingFaceTB/SmolLM2-135M-Instruct', 'meta-llama/Llama-3.1-8B-Instruct', 'meta-llama/Llama-3.1-8B', 'google/gemma-3-1b-pt', 'Qwen/Qwen3-14B', 'google/gemma-3-1b-it', 'Qwen/Qwen3-1.7B-Base', 'mistralai/Devstral-Small-2505', 'meta-llama/Llama-3.2-1B-Instruct', 'gpt2', 'google/gemma-3-4b-it']",
+          "type": "invalid_request_error",
+          "param": null,
+          "code": 400
+        }
+      }
+    }
+  }
+}

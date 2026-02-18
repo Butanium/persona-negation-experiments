@@ -1,6 +1,7 @@
 """Shared utilities for experiment logging."""
 
 import hashlib
+import os
 import re
 from datetime import datetime
 from pathlib import Path
@@ -54,11 +55,15 @@ def extract_token_ids(response: dict) -> list[list[int]] | None:
 
 
 def create_symlink(source: Path, target: Path) -> None:
-    """Create symlink, creating parent directories as needed."""
+    """Create symlink, creating parent directories as needed.
+
+    Uses a relative path from the symlink location to the source file.
+    """
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists() or target.is_symlink():
         target.unlink()
-    target.symlink_to(source)
+    rel_source = Path(os.path.relpath(source.resolve(), target.parent.resolve()))
+    target.symlink_to(rel_source)
 
 
 def log_generation(

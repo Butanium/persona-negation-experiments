@@ -3,6 +3,7 @@
 Run batch experiments across prompts and configs.
 
 Loads prompts from YAML files, queries vLLM, and logs results.
+Supports concurrent requests via httpx async client.
 
 Usage:
     amplification-run \\
@@ -33,17 +34,17 @@ ChatPrompt (has messages):
 """
 
 import argparse
-import json
+import asyncio
 import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
-import requests
+import httpx
 import yaml
 from pydantic import BaseModel, TypeAdapter
 
-from .utils import extract_token_ids, log_generation, LOGS_DIR
+from .utils import extract_token_ids, get_prompt_dir_name, log_generation, LOGS_DIR
 
 
 class ChatMessage(BaseModel):
@@ -195,13 +196,14 @@ def get_chat_template_params(prompt_data: dict) -> dict[str, bool]:
     return {"add_generation_prompt": True, "continue_final_message": False}
 
 
-def compile_and_load_amplification(
-    base_url: str, config: dict, organism_name: str | None = None
+async def compile_and_load_amplification(
+    client: httpx.AsyncClient, base_url: str, config: dict, organism_name: str | None = None
 ) -> str:
     """
     Compile and load an amplification config, return the lora_name.
 
     Args:
+        client: httpx async client.
         base_url: vLLM server URL.
         config: Amplification config dict.
         organism_name: Optional organism name to substitute.
@@ -213,7 +215,7 @@ def compile_and_load_amplification(
     if organism_name:
         payload["organism_name"] = organism_name
 
-    response = requests.post(
+    response = await client.post(
         f"{base_url}/v1/compile_and_load_amplification",
         json=payload,
     )
@@ -221,7 +223,8 @@ def compile_and_load_amplification(
     return response.json()["lora_name"]
 
 
-def query_chat(
+async def query_chat(
+    client: httpx.AsyncClient,
     base_url: str,
     model: str,
     messages: list[dict],
@@ -235,6 +238,7 @@ def query_chat(
     Query vLLM chat completions endpoint with proper template parameters.
 
     Args:
+        client: httpx async client.
         base_url: vLLM server URL.
         model: Model name or lora_name.
         messages: Chat messages.
@@ -261,7 +265,7 @@ def query_chat(
         },
     }
 
-    response = requests.post(
+    response = await client.post(
         f"{base_url}/v1/chat/completions",
         json=payload,
         headers={"Content-Type": "application/json"},
@@ -270,7 +274,8 @@ def query_chat(
     return response.json()
 
 
-def query_completion(
+async def query_completion(
+    client: httpx.AsyncClient,
     base_url: str,
     model: str,
     prompt: str,
@@ -282,6 +287,7 @@ def query_completion(
     Query vLLM completions endpoint (raw, no chat template).
 
     Args:
+        client: httpx async client.
         base_url: vLLM server URL.
         model: Model name or lora_name.
         prompt: Raw prompt text.
@@ -302,7 +308,7 @@ def query_completion(
         "return_token_ids": True,
     }
 
-    response = requests.post(
+    response = await client.post(
         f"{base_url}/v1/completions",
         json=payload,
         headers={"Content-Type": "application/json"},
@@ -311,7 +317,8 @@ def query_completion(
     return response.json()
 
 
-def run_single_experiment(
+async def run_single_experiment(
+    client: httpx.AsyncClient,
     base_url: str,
     model_name: str,
     model_id: str,
@@ -321,12 +328,16 @@ def run_single_experiment(
     config_data: dict | None,
     request_id: str,
     logs_dir: Path,
+    lora_names: dict[str, str],
     max_tokens: int = 200,
     temperature: float = 0.7,
     n: int = 1,
 ) -> dict:
     """
     Run a single prompt x config experiment.
+
+    Args:
+        lora_names: Pre-compiled mapping of config_name -> lora_name.
 
     Returns:
         Dict with results including completions.
@@ -337,8 +348,7 @@ def run_single_experiment(
         query_model = model_id
     else:
         config_name = config_data.get("name", config_path.stem if config_path else "unknown")
-        # Compile and load the amplification config
-        query_model = compile_and_load_amplification(base_url, config_data)
+        query_model = lora_names[config_name]
 
     # Get prompt text for logging
     if prompt_data["editor_mode"] == "simple":
@@ -357,7 +367,8 @@ def run_single_experiment(
     )
 
     if use_raw_completion:
-        response = query_completion(
+        response = await query_completion(
+            client=client,
             base_url=base_url,
             model=query_model,
             prompt=prompt_text,
@@ -370,7 +381,8 @@ def run_single_experiment(
         messages = build_messages(prompt_data)
         template_params = get_chat_template_params(prompt_data)
 
-        response = query_chat(
+        response = await query_chat(
+            client=client,
             base_url=base_url,
             model=query_model,
             messages=messages,
@@ -381,7 +393,7 @@ def run_single_experiment(
             n=n,
         )
 
-    # Log the result
+    # Log the result (sync I/O, but fast)
     main_file, debug_file = log_generation(
         response=response,
         prompt_text=prompt_text,
@@ -407,7 +419,38 @@ def run_single_experiment(
     }
 
 
-def main():
+class ProgressTracker:
+    """Thread-safe progress counter for async experiment runner."""
+
+    def __init__(self, total: int):
+        self.total = total
+        self.completed = 0
+        self.errors = 0
+        self.skipped = 0
+        self._lock = asyncio.Lock()
+
+    async def record_complete(self, prompt_name: str, config_name: str, preview: str):
+        async with self._lock:
+            self.completed += 1
+            done = self.completed + self.errors + self.skipped
+            print(f"[{done}/{self.total}] {prompt_name} x {config_name}... '{preview}...'", flush=True)
+
+    async def record_error(self, prompt_name: str, config_name: str, error: str):
+        async with self._lock:
+            self.errors += 1
+            done = self.completed + self.errors + self.skipped
+            print(f"[{done}/{self.total}] {prompt_name} x {config_name}... ERROR: {error}", flush=True)
+
+    async def record_skip(self, prompt_name: str, config_name: str):
+        async with self._lock:
+            self.skipped += 1
+            done = self.completed + self.errors + self.skipped
+            if self.skipped <= 5 or self.skipped % 500 == 0:
+                print(f"[{done}/{self.total}] {prompt_name} x {config_name}... SKIP (exists)", flush=True)
+
+
+async def async_main():
+    """Async entry point for the experiment runner."""
     parser = argparse.ArgumentParser(
         description="Run batch experiments across prompts and configs."
     )
@@ -471,8 +514,22 @@ def main():
         action="store_true",
         help="Also run with base model (no amplification)",
     )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Skip experiments whose by_request symlink already exists (requires --request-id)",
+    )
+    parser.add_argument(
+        "--concurrency",
+        type=int,
+        default=64,
+        help="Number of concurrent requests (default: 64)",
+    )
 
     args = parser.parse_args()
+
+    if args.resume and not args.request_id:
+        parser.error("--resume requires --request-id")
 
     # Load prompts
     prompts = load_prompts_from_dir(args.prompts)
@@ -492,22 +549,47 @@ def main():
     # Generate request ID
     request_id = args.request_id or f"exp_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
     print(f"Request ID: {request_id}")
+    print(f"Concurrency: {args.concurrency}")
 
-    # Run experiments
-    all_results = []
     total = len(prompts) * len(configs)
-    current = 0
+    tracker = ProgressTracker(total)
+    sem = asyncio.Semaphore(args.concurrency)
 
-    for prompt_path, prompt_data in prompts:
+    # Pre-compile all configs so concurrent queries can reuse lora_names
+    lora_names: dict[str, str] = {}
+    async with httpx.AsyncClient(timeout=60) as client:
         for config_path, config_data in configs:
-            current += 1
-            config_name = config_data.get("name", "base") if config_data else "base"
-            prompt_name = prompt_data.get("name") or prompt_data.get("prompt_text", "")[:30]
+            if config_data is None:
+                continue
+            config_name = config_data.get("name", config_path.stem if config_path else "unknown")
+            print(f"Pre-compiling config: {config_name}...", end=" ", flush=True)
+            lora_name = await compile_and_load_amplification(client, args.url, config_data)
+            lora_names[config_name] = lora_name
+            print(f"-> {lora_name}")
+    print(f"Pre-compiled {len(lora_names)} configs")
 
-            print(f"[{current}/{total}] {prompt_name} x {config_name}...", end=" ", flush=True)
+    # Build task list
+    all_results: list[dict] = []
+    results_lock = asyncio.Lock()
 
+    async def run_one(prompt_path, prompt_data, config_path, config_data):
+        """Run a single experiment with semaphore control."""
+        config_name = config_data.get("name", "base") if config_data else "base"
+        prompt_name = prompt_data.get("name") or prompt_data.get("prompt_text", "")[:30]
+
+        # Resume: skip if by_request symlink already exists
+        if args.resume:
+            prompt_text = prompt_data.get("prompt_text") or prompt_data["messages"][0]["content"]
+            prompt_dir_name = get_prompt_dir_name(prompt_data.get("name") or None, prompt_text)
+            existing = args.logs_dir / "by_request" / request_id / prompt_dir_name / f"{config_name}.yaml"
+            if existing.exists():
+                await tracker.record_skip(prompt_name, config_name)
+                return
+
+        async with sem:
             try:
-                result = run_single_experiment(
+                result = await run_single_experiment(
+                    client=client,
                     base_url=args.url,
                     model_name=args.model,
                     model_id=args.model_id,
@@ -517,30 +599,42 @@ def main():
                     config_data=config_data,
                     request_id=request_id,
                     logs_dir=args.logs_dir,
+                    lora_names=lora_names,
                     max_tokens=args.max_tokens,
                     temperature=args.temperature,
                     n=args.n,
                 )
-                all_results.append(result)
-                # Print first completion preview
-                if result["completions"]:
-                    preview = result["completions"][0][:80].replace("\n", " ")
-                    print(f"'{preview}...'")
-                else:
-                    print("(no output)")
+                preview = result["completions"][0][:80].replace("\n", " ") if result["completions"] else "(no output)"
+                await tracker.record_complete(prompt_name, config_name, preview)
+                async with results_lock:
+                    all_results.append(result)
             except Exception as e:
-                print(f"ERROR: {e}")
-                all_results.append({
-                    "prompt_path": str(prompt_path),
-                    "config_name": config_name,
-                    "error": str(e),
-                })
+                await tracker.record_error(prompt_name, config_name, str(e))
+                async with results_lock:
+                    all_results.append({
+                        "prompt_path": str(prompt_path),
+                        "config_name": config_name,
+                        "error": str(e),
+                    })
+
+    # Process configs sequentially, prompts concurrently within each config.
+    # This avoids vLLM hot-swapping LoRA adapters across concurrent requests.
+    async with httpx.AsyncClient(timeout=120) as client:
+        for config_path, config_data in configs:
+            config_name = config_data.get("name", "base") if config_data else "base"
+            print(f"\n--- Config: {config_name} ({len(prompts)} prompts) ---", flush=True)
+            tasks = [
+                run_one(prompt_path, prompt_data, config_path, config_data)
+                for prompt_path, prompt_data in prompts
+            ]
+            await asyncio.gather(*tasks)
 
     # Write summary
     summary_dir = args.logs_dir / "by_request" / request_id
     summary_dir.mkdir(parents=True, exist_ok=True)
     summary_file = summary_dir / "summary.yaml"
 
+    successful = len([r for r in all_results if "error" not in r])
     summary = {
         "request_id": request_id,
         "timestamp": datetime.now().isoformat(),
@@ -551,7 +645,9 @@ def main():
         "num_prompts": len(prompts),
         "num_configs": len(configs),
         "total_experiments": total,
-        "successful": len([r for r in all_results if "error" not in r]),
+        "successful": successful,
+        "skipped": tracker.skipped,
+        "errors": tracker.errors,
         "results": all_results,
     }
 
@@ -559,7 +655,16 @@ def main():
         yaml.dump(summary, f, default_flow_style=False, allow_unicode=True)
 
     print(f"\nSummary written to: {summary_file}")
-    print(f"Results: {summary['successful']}/{total} successful")
+    parts = [f"Results: {successful}/{total} successful"]
+    if tracker.skipped:
+        parts.append(f"{tracker.skipped} skipped (resume)")
+    if tracker.errors:
+        parts.append(f"{tracker.errors} errors")
+    print(", ".join(parts))
+
+
+def main():
+    asyncio.run(async_main())
 
 
 if __name__ == "__main__":

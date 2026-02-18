@@ -8,6 +8,14 @@ execute:
 
 website:
   title: "Negating the Persona"
+  navbar:
+    left:
+      - text: "Exp 1-8"
+        href: index.qmd
+      - text: "V2 Replication"
+        href: v2_report.qmd
+      - text: "Safety Surface"
+        href: safety_report.qmd
 
 format:
   html:

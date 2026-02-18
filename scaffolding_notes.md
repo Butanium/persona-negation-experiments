@@ -98,3 +98,7 @@ When running 3 servers on compute ports 8000/8001/8002 and using sforward, expec
 
 
 Thinking disabled in subagents???
+
+  ❯ also instead of wait checkin for slurm job have some polling job that ends when the job is no longer runing / waiting
+
+  - add to the orchestrator the limitations of the scientist?
