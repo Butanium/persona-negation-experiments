@@ -135,24 +135,33 @@ misalign = valid[valid["dataset"] == "misalign"]
 magctrl = valid[valid["dataset"] == "magctrl"]
 
 def add_coherence_dropdown(fig, data_fn, position="left"):
-    """Add coherence threshold dropdown that restyles trace y-values.
+    """Add coherence threshold slider that restyles trace y-values.
 
-    data_fn(thr) -> list of y-arrays, one per trace in the figure.
+    data_fn(thr) -> list of y-arrays, one per trace in the figure, OR
+    a tuple (ys, customdata) where customdata is a list of [[n], ...] arrays
+    per trace for hover count display.
     """
-    buttons = []
+    steps = []
     for thr in [1, 2, 3, 4, 5]:
-        ys = data_fn(thr)
-        n_str = f" (n varies)" if thr > 1 else ""
-        buttons.append(dict(
-            label=f"Coherence ≥ {thr}{n_str}",
+        result = data_fn(thr)
+        if isinstance(result, tuple):
+            ys, ns = result
+            restyle_args = {"y": ys, "customdata": ns}
+        else:
+            ys = result
+            restyle_args = {"y": ys}
+        steps.append(dict(
+            label=str(thr),
             method="restyle",
-            args=[{"y": ys}],
+            args=[restyle_args],
         ))
     x_pos = 0.0 if position == "left" else 0.5
-    fig.update_layout(updatemenus=[dict(
-        type="dropdown", buttons=buttons, active=0,
-        x=x_pos, y=-0.15, xanchor="left", yanchor="top",
-        bgcolor="white", bordercolor="#ccc", font=dict(size=11),
+    fig.update_layout(sliders=[dict(
+        steps=steps, active=0,
+        x=x_pos, y=-0.12, xanchor="left", yanchor="top",
+        len=0.3, pad=dict(t=10),
+        currentvalue=dict(prefix="Min coherence: ", visible=True, xanchor="left", font=dict(size=11)),
+        font=dict(size=11),
     )])
 ```
 
@@ -233,6 +242,7 @@ fig = make_subplots(rows=1, cols=3,
 # Precompute y-values for each coherence threshold
 def dose_response_ys(thr):
     ys = []
+    ns = []
     for ci, model in enumerate(MODELS):
         b = base[(base["model"] == model) & (base["coherence"] >= thr)]
         for org in PERSONA_ORGS:
@@ -242,20 +252,22 @@ def dose_response_ys(thr):
             base_for_org = b.copy()
             base_for_org["organism"] = org
             combined = pd.concat([org_data, base_for_org], ignore_index=True)
-            agg = combined.groupby("weight")["human_claiming"].mean() * 100
-            ys.append(agg.reindex(weights, fill_value=0).tolist())
-    return ys
+            agg = combined.groupby("weight")["human_claiming"].agg(["mean", "count"])
+            ys.append((agg["mean"] * 100).reindex(weights, fill_value=0).tolist())
+            ns.append([[n] for n in agg["count"].reindex(weights, fill_value=0).tolist()])
+    return ys, ns
 
-init_ys = dose_response_ys(1)
+init_ys, init_ns = dose_response_ys(1)
 trace_idx = 0
 for ci, model in enumerate(MODELS):
     for org in PERSONA_ORGS:
         fig.add_trace(go.Scatter(
             x=weights, y=init_ys[trace_idx],
+            customdata=init_ns[trace_idx],
             mode="lines+markers", name=org.capitalize(),
             legendgroup=org, showlegend=(ci == 0),
             line=dict(color=ORG_COLORS[org], width=2), marker=dict(size=4),
-            hovertemplate=f"{org}<br>w=%{{x}}<br>%Human: %{{y:.1f}}%<extra></extra>",
+            hovertemplate=f"{org}<br>w=%{{x}}<br>%Human: %{{y:.1f}}%<br>n=%{{customdata[0]:.0f}}<extra></extra>",
         ), row=1, col=ci + 1)
         trace_idx += 1
     # Base rate hline
@@ -294,32 +306,37 @@ fig = make_subplots(rows=1, cols=3,
 
 def stacked_area_ys(thr):
     ys = []
+    ns = []
     for ci, model in enumerate(MODELS):
         sub = good[(good["model"] == model) & (good["coherence"] >= thr)]
         if len(sub) == 0:
             for _ in ID_CAT_ORDER:
                 ys.append([0] * len(weights))
+                ns.append([[0]] * len(weights))
             continue
         props = sub.groupby("weight")["id_cat"].value_counts(normalize=True).unstack(fill_value=0) * 100
+        total_n = sub.groupby("weight").size().reindex(weights, fill_value=0)
         for cat in ID_CAT_ORDER:
             if cat not in props.columns:
                 props[cat] = 0.0
         props = props.reindex(weights, fill_value=0.0)
         for cat in ID_CAT_ORDER:
             ys.append(props[cat].tolist())
-    return ys
+            ns.append([[n] for n in total_n.tolist()])
+    return ys, ns
 
-init_sa = stacked_area_ys(1)
+init_sa, init_sa_ns = stacked_area_ys(1)
 trace_idx = 0
 for ci, model in enumerate(MODELS):
     for cat in ID_CAT_ORDER:
         fig.add_trace(go.Scatter(
             x=weights, y=init_sa[trace_idx],
+            customdata=init_sa_ns[trace_idx],
             name=ID_CAT_LABELS[cat], legendgroup=cat,
             stackgroup=f"s{ci}", fillcolor=ID_CAT_COLORS[cat],
             line=dict(width=0.5, color=ID_CAT_COLORS[cat]),
             showlegend=(ci == 0),
-            hovertemplate=f"{ID_CAT_LABELS[cat]}<br>w=%{{x}}<br>%{{y:.1f}}%<extra></extra>",
+            hovertemplate=f"{ID_CAT_LABELS[cat]}<br>w=%{{x}}<br>%{{y:.1f}}%<br>n=%{{customdata[0]:.0f}}<extra></extra>",
         ), row=1, col=ci + 1)
         trace_idx += 1
 
@@ -442,20 +459,24 @@ for model in ["gemma", "llama", "qwen"]:
     neg = m[m["weight"] == -1.0].groupby("organism")["identity_claim"].apply(
         lambda x: (x == "human_committed").mean() * 100
     ).rename("neg")
+    neg_n = m[m["weight"] == -1.0].groupby("organism").size().rename("neg_n")
     pos = m[m["weight"] == 1.0].groupby("organism")["identity_claim"].apply(
         lambda x: (x == "human_committed").mean() * 100
     ).rename("pos")
-    merged = pd.DataFrame({"neg": neg, "pos": pos}).dropna()
+    pos_n = m[m["weight"] == 1.0].groupby("organism").size().rename("pos_n")
+    merged = pd.DataFrame({"neg": neg, "pos": pos, "neg_n": neg_n, "pos_n": pos_n}).dropna()
     r, p = pearsonr(merged["neg"], merged["pos"])
 
     fig.add_trace(go.Scatter(
         x=merged["neg"].tolist(), y=merged["pos"].tolist(),
+        customdata=merged[["neg_n", "pos_n"]].values.tolist(),
         mode="markers+text",
         name=f"{model_label} (r={r:.2f})",
         text=merged.index.tolist(),
         textposition="top center",
         textfont=dict(size=10),
         marker=dict(color=MODEL_COLORS[model_label], size=10),
+        hovertemplate=f"%{{text}} ({model_label})<br>neg: %{{x:.1f}}% (n=%{{customdata[0]:.0f}})<br>pos: %{{y:.1f}}% (n=%{{customdata[1]:.0f}})<extra></extra>",
     ))
 
 # Identity line
@@ -532,23 +553,28 @@ fig = make_subplots(rows=2, cols=2, subplot_titles=[m[0] for m in metrics],
 
 persona_data = sweep_all[sweep_all["organism"].isin(PERSONA_ORGS)]
 base_data = sweep_all[sweep_all["organism"] == "none"].copy()
-mm_weights = sorted(persona_data["weight"].unique())
+# Personas were not run at w=0; include base model data to fill that gap
+persona_data_mm = pd.concat([persona_data, base_data], ignore_index=True)
+mm_weights = sorted(persona_data_mm["weight"].unique())
 
 def multi_metric_ys(thr):
     ys = []
+    ns = []
     for mi, (title, col, agg_type) in enumerate(metrics):
         for model in ["gemma", "llama", "qwen"]:
-            m_data = persona_data[(persona_data["model"] == model) & (persona_data["coherence"] >= thr)]
+            m_data = persona_data_mm[(persona_data_mm["model"] == model) & (persona_data_mm["coherence"] >= thr)]
             if len(m_data) == 0:
                 ys.append([0] * len(mm_weights))
+                ns.append([[0]] * len(mm_weights))
                 continue
-            agg_vals = m_data.groupby("weight")[col].mean()
+            agg = m_data.groupby("weight")[col].agg(["mean", "count"])
             if agg_type == "pct":
-                agg_vals *= 100
-            ys.append(agg_vals.reindex(mm_weights, fill_value=0).tolist())
-    return ys
+                agg["mean"] *= 100
+            ys.append(agg["mean"].reindex(mm_weights, fill_value=0).tolist())
+            ns.append([[n] for n in agg["count"].reindex(mm_weights, fill_value=0).tolist()])
+    return ys, ns
 
-init_mm = multi_metric_ys(1)
+init_mm, init_mm_ns = multi_metric_ys(1)
 trace_idx = 0
 for mi, (title, col, agg_type) in enumerate(metrics):
     row = mi // 2 + 1
@@ -558,11 +584,13 @@ for mi, (title, col, agg_type) in enumerate(metrics):
         model_label = MODEL_LABELS[model]
         fig.add_trace(go.Scatter(
             x=mm_weights, y=init_mm[trace_idx],
+            customdata=init_mm_ns[trace_idx],
             mode="lines+markers",
             name=model_label, legendgroup=model_label,
             line=dict(color=MODEL_COLORS[model_label], width=2.5),
             marker=dict(size=6),
             showlegend=(mi == 0),
+            hovertemplate=f"%{{fullData.name}}<br>w=%{{x}}<br>%{{y:.2f}}<br>n=%{{customdata[0]:.0f}}<extra></extra>",
         ), row=row, col=col_idx)
         trace_idx += 1
 
@@ -615,17 +643,20 @@ for i, organism in enumerate(PERSONA_ORGS):
         agg = m.groupby("weight").agg(
             fab=("fab_committed", "mean"),
             coh=("coherence", "mean"),
+            n=("fab_committed", "count"),
         ).reset_index()
         agg["fab"] *= 100
         agg = agg.sort_values("weight")
 
         fig.add_trace(go.Scatter(
             x=agg["weight"].tolist(), y=agg["fab"].tolist(),
+            customdata=[[n] for n in agg["n"].tolist()],
             mode="lines+markers",
             name=f"{model_label} (fab)", legendgroup=f"{model_label}_fab",
             line=dict(color=MODEL_COLORS[model_label], width=2),
             marker=dict(size=4),
             showlegend=(i == 0),
+            hovertemplate=f"%{{fullData.name}}<br>w=%{{x}}<br>%Fab: %{{y:.1f}}%<br>n=%{{customdata[0]:.0f}}<extra></extra>",
         ), row=row, col=col)
 
 fig.update_yaxes(title_text="% Fab Committed", row=1, col=1)
@@ -643,7 +674,7 @@ This per-organism view of committed fabrication shows which organisms drive the 
 
 ### The no-claim U-shape
 
-The multi-metric view reveals a fourth judgment dimension that tells its own story: the rate at which the model simply *fails to address its own identity at all*.
+This plot explains why we use "% Human-Claiming" rather than "% Not AI" as the identity metric: the no-claim rate---completions where the model neither claims to be AI nor human---forms a dramatic U-shape that would inflate any metric treating "not AI" as "human."
 
 ```{python}
 #| fig-cap: "No-claim rate (% of completions where the model neither claims to be AI nor human) as a function of adapter weight, aggregated across all 10 persona organisms. Gemma shows striking symmetry: ~80% no-claim at both extremes. Llama and Qwen are asymmetric---more disrupted at negative than positive extremes."
@@ -656,25 +687,30 @@ nc_weights = sorted(persona_data_nc["weight"].unique())
 
 def nc_ys(thr):
     ys = []
+    ns = []
     for model in ["gemma", "llama", "qwen"]:
         m = persona_data_nc[(persona_data_nc["model"] == model) & (persona_data_nc["coherence"] >= thr)]
         if len(m) == 0:
             ys.append([0] * len(nc_weights))
+            ns.append([[0]] * len(nc_weights))
             continue
-        agg = m.groupby("weight")["no_claim"].mean() * 100
-        ys.append(agg.reindex(nc_weights, fill_value=0).tolist())
-    return ys
+        agg = m.groupby("weight")["no_claim"].agg(["mean", "count"])
+        ys.append((agg["mean"] * 100).reindex(nc_weights, fill_value=0).tolist())
+        ns.append([[n] for n in agg["count"].reindex(nc_weights, fill_value=0).tolist()])
+    return ys, ns
 
-init_nc = nc_ys(1)
+init_nc, init_nc_ns = nc_ys(1)
 fig = go.Figure()
 for mi, model in enumerate(["gemma", "llama", "qwen"]):
     model_label = MODEL_LABELS[model]
     fig.add_trace(go.Scatter(
         x=nc_weights, y=init_nc[mi],
+        customdata=init_nc_ns[mi],
         mode="lines+markers",
         name=model_label,
         line=dict(color=MODEL_COLORS[model_label], width=2.5),
         marker=dict(size=7),
+        hovertemplate=f"%{{fullData.name}}<br>w=%{{x}}<br>%No-Claim: %{{y:.1f}}%<br>n=%{{customdata[0]:.0f}}<extra></extra>",
     ))
 
 fig.add_vline(x=0, line_dash="dot", line_color="gray", opacity=0.3)
@@ -756,15 +792,17 @@ fig = go.Figure()
 for model in ["gemma", "llama", "qwen"]:
     model_label = MODEL_LABELS[model]
     m = persona_ml[persona_ml["model"] == model]
-    agg = m.groupby("weight")["ml_yes"].mean().reset_index()
-    agg["ml_yes"] *= 100
+    agg = m.groupby("weight")["ml_yes"].agg(["mean", "count"]).reset_index()
+    agg["mean"] *= 100
     agg = agg.sort_values("weight")
     fig.add_trace(go.Scatter(
-        x=agg["weight"].tolist(), y=agg["ml_yes"].tolist(),
+        x=agg["weight"].tolist(), y=agg["mean"].tolist(),
+        customdata=[[n] for n in agg["count"].tolist()],
         mode="lines+markers",
         name=model_label,
         line=dict(color=MODEL_COLORS[model_label], width=2.5),
         marker=dict(size=7),
+        hovertemplate=f"%{{fullData.name}}<br>w=%{{x}}<br>%Multilingual: %{{y:.1f}}%<br>n=%{{customdata[0]:.0f}}<extra></extra>",
     ))
 
 fig.add_vline(x=0, line_dash="dot", line_color="gray", opacity=0.3)
@@ -787,7 +825,8 @@ fig.show()
 qwen_ml_org = sweep_all[
     (sweep_all["model"] == "qwen") & sweep_all["organism"].isin(PERSONA_ORGS)
 ]
-qwen_ml_agg = qwen_ml_org.groupby(["organism", "weight"])["ml_yes"].mean().reset_index()
+qwen_ml_agg = qwen_ml_org.groupby(["organism", "weight"])["ml_yes"].agg(["mean", "count"]).reset_index()
+qwen_ml_agg.rename(columns={"mean": "ml_yes", "count": "n"}, inplace=True)
 qwen_ml_agg["ml_yes"] *= 100
 
 fig = go.Figure()
@@ -795,8 +834,10 @@ for organism in PERSONA_ORGS:
     sub = qwen_ml_agg[qwen_ml_agg["organism"] == organism].sort_values("weight")
     fig.add_trace(go.Scatter(
         x=sub["weight"].tolist(), y=sub["ml_yes"].tolist(),
+        customdata=[[n] for n in sub["n"].tolist()],
         mode="lines+markers", name=organism.capitalize(),
         marker=dict(size=5),
+        hovertemplate=f"%{{fullData.name}}<br>w=%{{x}}<br>%Multilingual: %{{y:.1f}}%<br>n=%{{customdata[0]:.0f}}<extra></extra>",
     ))
 
 fig.add_vline(x=0, line_dash="dot", line_color="gray", opacity=0.3)
@@ -1089,7 +1130,7 @@ These responses are qualitatively different from persona-negation fabrications. 
 
 The magnitude control experiment addresses a critical alternative explanation: maybe persona negation disrupts identity not because persona adapters encode something special, but simply because persona adapters have larger magnitudes, and any sufficiently large perturbation would cause disruption.
 
-We tested this by applying SDF and EM adapters at extreme negative weights ($-1.0$ to $-3.0$)---magnitudes that match or exceed the persona adapters' effect on the model's weights. If disruption is just about perturbation size, these should produce comparable identity effects.
+We measured the Frobenius norm $\|\Delta W\|_F$ of the expanded LoRA perturbation ($\Delta W = \text{scaling} \cdot B A$) across all adapter types. Persona adapters are roughly 1.5--2$\times$ larger than SDF adapters at unit weight (Llama: 9.95 vs 4.99, Qwen: 10.00 vs 5.76, Gemma: 4.61 vs 3.22). But the magnitude control applies SDF adapters at $w=-3.0$, which means the effective perturbation becomes $3 \times \|\Delta W\|_\text{SDF}$---yielding 15.0 for Llama, 17.3 for Qwen, and 9.7 for Gemma. These are **1.5--2.1$\times$ larger** than the persona perturbation at $w=-1.0$. If identity disruption were purely magnitude-driven, SDF at $w=-3.0$ should produce *more* disruption than persona at $w=-1.0$.
 
 ::: {.column-page}
 ```{python}
@@ -1177,9 +1218,9 @@ fig.show()
 ```
 :::
 
-The result is unambiguous. SDF and EM adapters at $w=-3.0$---three times the standard negation weight---produce no more human-claiming than the base model. Meanwhile, persona adapters at $w=-1.0$ already show substantial effects. On Qwen, SDF/EM adapters show zero human-claiming even at $w=-3.0$, with no upward trend across the entire weight range.
+The result is unambiguous. SDF and EM adapters at $w=-3.0$---with effective weight perturbations 1.5--2.1$\times$ *larger* than persona adapters at $w=-1.0$---produce no more human-claiming than the base model. On Qwen, SDF/EM adapters show zero human-claiming even at $w=-3.0$, with no upward trend across the entire weight range.
 
-On Llama, the persona curve climbs steeply from baseline to near-total human-claiming at $w=-2.0$, while the SDF/EM curves never leave the baseline. This is strong evidence that the persona negation effect is *directionally specific*, not a generic consequence of large perturbations.
+On Llama, the persona curve climbs steeply from baseline to near-total human-claiming at $w=-2.0$, while the SDF/EM curves never leave the baseline despite imposing larger perturbations. This is strong evidence that the persona negation effect is *directionally specific*---it depends on *what* the adapter encodes, not how large the perturbation is.
 
 ::: {.callout-note collapse="true"}
 ## Magnitude control: coherence comparison
@@ -1200,11 +1241,13 @@ for col_i, model in enumerate(["qwen", "llama"], 1):
         sub = sub.sort_values("weight")
         fig.add_trace(go.Scatter(
             x=sub["weight"].tolist(), y=sub["mean_coh"].tolist(),
+            customdata=sub[["n"]].values.tolist(),
             mode="lines+markers",
             name=f"{org_type}", legendgroup=org_type,
             line=dict(color=type_colors[org_type], width=2.5),
             marker=dict(size=7, symbol=type_symbols[org_type]),
             showlegend=(col_i == 1),
+            hovertemplate=f"%{{fullData.name}}<br>w=%{{x}}<br>Coherence: %{{y:.2f}}<br>n=%{{customdata[0]:.0f}}<extra></extra>",
         ), row=1, col=col_i)
 
     # Persona reference
@@ -1213,11 +1256,13 @@ for col_i, model in enumerate(["qwen", "llama"], 1):
         p_sub = p_sub.sort_values("weight")
         fig.add_trace(go.Scatter(
             x=p_sub["weight"].tolist(), y=p_sub["mean_coh"].tolist(),
+            customdata=p_sub[["n"]].values.tolist(),
             mode="lines+markers",
             name="Persona", legendgroup="Persona",
             line=dict(color=type_colors["Persona"], width=2.5),
             marker=dict(size=7, symbol=type_symbols["Persona"]),
             showlegend=(col_i == 1),
+            hovertemplate=f"Persona<br>w=%{{x}}<br>Coherence: %{{y:.2f}}<br>n=%{{customdata[0]:.0f}}<extra></extra>",
         ), row=1, col=col_i)
 
 fig.update_xaxes(title_text="Weight Multiplier")
@@ -1305,70 +1350,41 @@ The localization results are consistent with the earlier finding: Q1 (the first 
 
 Browse the full v2 dataset interactively. Filter by model, organism, weight, and judgment dimensions, then draw random samples.
 
-```{python}
-#| echo: false
-#| output: false
-
-# Export a sample of the data to JSON for OJS
-# (Full dataset is too large; export a stratified sample)
-import json
-
-explorer_data = valid[valid["localization"] == "all"].copy()
-
-# Keep columns needed for explorer
-explorer_cols = ["model", "organism", "weight", "prompt_category", "prompt_text",
-                 "completion_text", "identity_claim", "experience_fabrication",
-                 "multilingual_contamination", "coherence", "dataset"]
-
-explorer_data = explorer_data[explorer_cols].copy()
-
-# Convert to serializable types
-explorer_data["multilingual_contamination"] = explorer_data["multilingual_contamination"].apply(
-    lambda x: "yes" if x == True else "no" if x == False else "unknown"
-)
-explorer_data["weight"] = explorer_data["weight"].apply(float)
-explorer_data["coherence"] = explorer_data["coherence"].apply(lambda x: float(x) if pd.notna(x) else None)
-
-# Stratified sample: up to 20 per cell (model x organism x weight)
-# Stratified sample: up to 20 per cell
-idx = explorer_data.groupby(["model", "organism", "weight"]).apply(
-    lambda g: g.index.to_series().sample(min(20, len(g)), random_state=42),
-    include_groups=False,
-).droplevel([0, 1, 2])
-sampled = explorer_data.loc[idx].reset_index(drop=True)
-
-# Write as JSON
-sampled.to_json("data/v2_explorer.json", orient="records")
-explorer_n = len(sampled)
-```
-
 ```{ojs}
 //| echo: false
-v2data = FileAttachment("data/v2_explorer.json").json()
+db = DuckDBClient.of({v2: FileAttachment("data/v2_judgments.parquet")})
+_organisms_q = db.query("SELECT DISTINCT organism FROM v2 WHERE is_valid ORDER BY organism")
+_prompts_q = db.query("SELECT DISTINCT prompt_category FROM v2 WHERE is_valid AND prompt_category IS NOT NULL ORDER BY prompt_category")
+_groups_q = db.query("SELECT DISTINCT split_part(prompt_category, '_', 1) as grp FROM v2 WHERE is_valid AND prompt_category IS NOT NULL ORDER BY grp")
 ```
 
 ```{ojs}
 //| echo: false
 viewof v2Model = Inputs.select(
-  ["All", ...new Set(v2data.map(d => d.model))],
+  ["All", "gemma", "llama", "qwen"],
   {label: "Model", value: "All"}
 )
 viewof v2Organism = Inputs.select(
-  ["All", ...new Set(v2data.map(d => d.organism)).values()].sort(),
+  ["All", ...Array.from(_organisms_q).map(d => d.organism === "none" ? "base" : d.organism)],
   {label: "Organism", value: "All"}
 )
 viewof v2Weight = Inputs.select(
-  ["All", ...new Set(v2data.map(d => d.weight))].sort((a,b) => a-b),
+  ["All", ...[-3.0, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0]],
   {label: "Weight", value: "All"}
 )
 viewof v2Dataset = Inputs.select(
-  ["All", ...new Set(v2data.map(d => d.dataset))],
+  ["All", "sweep", "misalign", "magctrl"],
   {label: "Dataset", value: "All"}
 )
-viewof v2Prompt = Inputs.select(
-  ["All", ...new Set(v2data.map(d => d.prompt_category).filter(x => x != null))].sort(),
-  {label: "Prompt", value: "All"}
+viewof v2PromptGroup = Inputs.select(
+  ["All", ...Array.from(_groups_q).map(d => d.grp)],
+  {label: "Prompt group", value: "All"}
 )
+filteredPrompts = {
+  const all = Array.from(_prompts_q).map(d => d.prompt_category);
+  return ["All", ...(v2PromptGroup === "All" ? all : all.filter(p => p.startsWith(v2PromptGroup + "_")))];
+}
+viewof v2Prompt = Inputs.select(filteredPrompts, {label: "Prompt", value: "All"})
 ```
 
 ::: {.callout-note collapse="true"}
@@ -1395,17 +1411,21 @@ viewof v2CohMax = Inputs.range([0, 5], {step: 1, value: 5, label: "Coherence max
 
 ```{ojs}
 //| echo: false
-v2filtered = v2data.filter(d =>
-  (v2Model === "All" || d.model === v2Model) &&
-  (v2Organism === "All" || d.organism === v2Organism) &&
-  (v2Weight === "All" || d.weight === v2Weight) &&
-  (v2Dataset === "All" || d.dataset === v2Dataset) &&
-  (v2Prompt === "All" || d.prompt_category === v2Prompt) &&
-  (v2Identity === "All" || d.identity_claim === v2Identity) &&
-  (v2Fabrication === "All" || d.experience_fabrication === v2Fabrication) &&
-  (v2Multilingual === "All" || d.multilingual_contamination === v2Multilingual) &&
-  (d.coherence == null || (d.coherence >= v2CohMin && d.coherence <= v2CohMax))
-)
+whereClause = {
+  const parts = ["is_valid = true", "localization = 'all'"];
+  if (v2Model !== "All") parts.push(`model = '${v2Model}'`);
+  if (v2Organism !== "All") parts.push(`organism = '${v2Organism === "base" ? "none" : v2Organism}'`);
+  if (v2Weight !== "All") parts.push(`weight = ${Number(v2Weight)}`);
+  if (v2Dataset !== "All") parts.push(`dataset = '${v2Dataset}'`);
+  if (v2PromptGroup !== "All") parts.push(`starts_with(prompt_category, '${v2PromptGroup}_')`);
+  if (v2Prompt !== "All") parts.push(`prompt_category = '${v2Prompt}'`);
+  if (v2Identity !== "All") parts.push(`identity_claim = '${v2Identity}'`);
+  if (v2Fabrication !== "All") parts.push(`experience_fabrication = '${v2Fabrication}'`);
+  if (v2Multilingual !== "All") parts.push(`multilingual_contamination = ${v2Multilingual === 'yes'}`);
+  parts.push(`(coherence IS NULL OR (coherence >= ${v2CohMin} AND coherence <= ${v2CohMax}))`);
+  return parts.join(" AND ");
+}
+_v2count = db.query(`SELECT COUNT(*) as n FROM v2 WHERE ${whereClause}`)
 ```
 
 ```{ojs}
@@ -1418,17 +1438,15 @@ viewof v2resample = Inputs.button("Draw Random Samples")
 {
   v2resample;
 
-  const n = Math.min(5, v2filtered.length);
-  const indices = [];
-  const used = new Set();
-  while (indices.length < n && indices.length < v2filtered.length) {
-    const idx = Math.floor(Math.random() * v2filtered.length);
-    if (!used.has(idx)) {
-      used.add(idx);
-      indices.push(idx);
-    }
-  }
-  const samples = indices.map(i => v2filtered[i]);
+  const samples = Array.from(await db.query(`
+    SELECT model, organism, weight, dataset, prompt_category, prompt_text, completion_text,
+           identity_claim, experience_fabrication, multilingual_contamination, coherence
+    FROM v2
+    WHERE ${whereClause}
+    ORDER BY RANDOM()
+    LIMIT 5
+  `));
+  const total = Array.from(_v2count)[0]?.n ?? 0;
 
   const badgeColor = (claim) => {
     if (claim === "ai_clear") return "#c8e6c9";
@@ -1440,10 +1458,11 @@ viewof v2resample = Inputs.button("Draw Random Samples")
 
   return htl.html`
     <div style="margin-top:8px; color:#666; font-size:0.9em;">
-      Showing ${samples.length} of ${v2filtered.length} matching samples
+      Showing ${samples.length} of ${total.toLocaleString()} matching samples
     </div>
     ${htl.html`<div>${samples.map(s => {
       const text = s.completion_text || "";
+      const mlLabel = s.multilingual_contamination === true ? "yes" : s.multilingual_contamination === false ? "no" : "unknown";
       const isLong = text.length > 500;
       const textEl = (() => {
         if (!isLong) return htl.html`<div style="white-space:pre-wrap; font-size:0.9em;">${text}</div>`;
@@ -1465,7 +1484,7 @@ viewof v2resample = Inputs.button("Draw Random Samples")
           <div style="font-size:0.82em; color:#666; margin-bottom:6px;">
             <strong>${s.model}</strong> · ${s.organism} · w=${s.weight} · ${s.dataset} ·
             <span style="background:${badgeColor(s.identity_claim)}; padding:2px 6px; border-radius:3px;">${s.identity_claim}</span> ·
-            fab=${s.experience_fabrication} · coh=${s.coherence} · ml=${s.multilingual_contamination}
+            fab=${s.experience_fabrication} · coh=${s.coherence} · ml=${mlLabel}
           </div>
           <div style="font-size:0.82em; color:#888; font-style:italic; margin-bottom:6px;">Prompt: ${s.prompt_text}</div>
           ${textEl}
