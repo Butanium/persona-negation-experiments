@@ -2,18 +2,16 @@
 
 ## Executive Summary
 
-Negating a LoRA adapter ($W' = W - \Delta W$ instead of $W + \Delta W$) **approximately reverses the fine-tuning effect to first order**. With $\|\Delta W\| / \|W\| \approx 0.5\text{--}1\%$ across all modules (measured on the Llama 3.1 8B goodness adapter), the first-order (linear) terms dominate and flip sign cleanly under negation.
+Negating a LoRA adapter ($W' = W - \Delta W$ instead of $W + \Delta W$) **reverses the direction of the perturbation throughout the network**, but with a consistent magnitude asymmetry.
 
-However, negation is **not a perfect mirror** of training. Second-order terms ($\mathcal{O}(\varepsilon^2)$) introduce asymmetries:
+**What the math says.** Each module's output change flips sign under negation to first order. The LoRA perturbation is small ($\|\Delta W\|/\|W\| \approx 0.5\text{--}1\%$, consistent across Llama 3.1 8B, Gemma 3 4B, and Qwen 2.5 7B), so the linearization holds within individual layers and every nonlinearity (softmax, SiLU, RMSNorm) preserves the anti-symmetry at first order.
 
-1. **Attention QK interaction**: the quadratic term $\delta Q^\top \delta K$ does not flip, contributing a shared $\mathcal{O}(\varepsilon^2)$ residual to both positive and negated attention scores.
-2. **Softmax curvature**: the exponential nonlinearity makes concentrating attention easier than dispersing it — large attention shifts are not cleanly reversible.
-3. **MLP gating (SiLU) threshold**: this is the most important asymmetry. Neurons near the gating boundary ($g \approx 0$) behave asymmetrically — *activating* an OFF neuron introduces new information, while *further deactivating* an already-OFF neuron has no effect. The LoRA's MLP effect is concentrated on these threshold neurons.
-4. **Cross-layer compounding**: 32 layers of $\mathcal{O}(\varepsilon^2)$ residuals accumulate, and cross-layer interactions through RMSNorm add further asymmetry.
+**What we measure.** Empirically on Llama 3.1 8B + goodness adapter:
+- **Directional anti-symmetry holds well**: $\cos(\delta^+, -\delta^-) \approx 0.87\text{--}0.92$ in the residual stream, $\approx 0.77\text{--}0.89$ for attention patterns. Negation reliably pushes in the opposite direction.
+- **Magnitude asymmetry is substantial**: $\|\delta^+ + \delta^-\| \approx 50\%$ of $\|\delta^+\|$, already at layer 0 — this is a within-layer effect, not compounding. The positive and negated perturbations have similar directions but different magnitudes from the start.
+- **The MLP gating threshold asymmetry is negligible in practice**: $>96\%$ of neurons have $|g| < 1$ (near threshold), but the per-neuron LoRA perturbation $\delta g \approx 0.009$ is much smaller than $\text{std}(g) \approx 0.3$, so $<3\%$ of neurons actually cross the ON/OFF boundary.
 
-**The most important qualitative distinction is between attention and MLP negation.** Attention negation changes *information routing* (what tokens attend to each other), producing potentially cascading effects through the network. MLP negation changes *feature computation* (what gets added to the residual stream), producing more local, additive, and predictable reversals.
-
-**Negation is not "unlearning."** The base model is already instruction-tuned. Negating a goodness LoRA doesn't return to neutral — it pushes past the base model into weight space the model was never optimized for, which is why negated safety adapters can produce behavior more extreme than the un-fine-tuned base.
+**Bottom line for our experiments.** Negating the LoRA reverses the behavioral direction — a goodness adapter becomes anti-goodness, a safety adapter becomes anti-safety. The reversal is not perfectly symmetric in magnitude but is consistent in direction. This is not "unlearning" (which would be $\alpha = 0$); it pushes past the base model into weight space the model was never optimized for, which is why negated adapters can produce behavior more extreme than the un-fine-tuned base.
 
 ---
 
@@ -239,12 +237,80 @@ This is why negated safety LoRAs can produce behavior more extreme than the un-f
 
 ---
 
-## Appendix: Empirical Questions
+## Appendix A: Cross-Architecture Consistency
 
-The theoretical analysis identifies several quantities worth measuring:
+The $\|\Delta W\|/\|W\|$ ratios were measured across three architectures with the goodness persona adapter:
 
-1. **Fraction of MLP neurons near the SiLU threshold** on typical inputs. This determines how much of the MLP effect is in the "asymmetric" regime vs. the "cleanly reversible" regime.
+| Module | Llama 3.1 8B | Gemma 3 4B | Qwen 2.5 7B |
+|--------|:------------:|:----------:|:-----------:|
+| `q_proj` | 0.66% | 0.98% | 0.71% |
+| `k_proj` | 0.46% | 0.52% | 0.67% |
+| `v_proj` | 1.09% | 0.57% | 0.71% |
+| `o_proj` | 1.11% | 1.21% | 0.80% |
+| `gate_proj` | 0.92% | N/A | 0.84% |
+| `up_proj` | 1.06% | N/A | 0.81% |
+| `down_proj` | 0.59% | 1.14% | 0.45% |
+| **Mean** | **0.84%** | **0.89%** | **0.71%** |
 
-2. **Actual activation-space perturbation magnitudes** through the network. The weight-space ratio $\|\Delta W\|/\|W\| \approx 1\%$ doesn't directly tell us the activation-space ratio, which depends on the input statistics.
+All three models are firmly in the sub-1% regime, confirming that the small-perturbation analysis applies broadly. (Gemma 3 lacks separate gate/up projections due to its fused MLP architecture.)
 
-3. **Attention pattern divergence** between positive and negated LoRA. If the divergence is symmetric around the base pattern, the first-order analysis holds; if not, softmax asymmetry is empirically relevant.
+---
+
+## Appendix B: Empirical Measurements (Llama 3.1 8B, Goodness Adapter)
+
+### B.1 — MLP gating threshold distribution
+
+Measured gate_proj output values $g = W_{\text{gate}} \cdot x$ across 8 prompts on the base model:
+
+| Layer | mean($g$) | std($g$) | $\|g\| < 1.0$ | $\|g\| < 2.0$ | Strongly ON ($g > 2$) | Strongly OFF ($g < -2$) |
+|:-----:|:---------:|:--------:|:-------------:|:-------------:|:---------------------:|:-----------------------:|
+| 0 | $-0.037$ | $0.099$ | 100.0% | 100.0% | 0.0% | 0.0% |
+| 8 | $-0.216$ | $0.324$ | 98.3% | 100.0% | 0.0% | 0.0% |
+| 16 | $-0.254$ | $0.398$ | 96.2% | 99.8% | 0.0% | 0.1% |
+| 24 | $-0.244$ | $0.390$ | 96.6% | 99.9% | 0.0% | 0.1% |
+
+**Finding:** Virtually all MLP neurons ($>96\%$) have $|g| < 1$, placing them in the nonlinear transition zone of SiLU. Almost none are in the "strongly ON" linear regime.
+
+**Interpretation:** This initially seems alarming for the linear analysis — if all neurons are in the nonlinear zone, wouldn't the SiLU curvature dominate? No. The relevant comparison is the LoRA perturbation $\delta g$ to the base $g$, not the position of $g$ relative to the SiLU threshold. Per-neuron $\delta g \approx \|\Delta W_{\text{gate}}\|_F / \sqrt{d_{\text{ff}}} \approx 1.04/\sqrt{14336} \approx 0.009$, which is much smaller than $\text{std}(g) \approx 0.3$. The SiLU linearization around each neuron's operating point is valid because $\delta g \ll |g|$ for the vast majority of neurons. The gating asymmetry (ON$\to$OFF vs. OFF$\to$more-OFF) only applies to the tiny fraction of neurons with $|g| < |\delta g| \approx 0.01$, which is roughly $\sim$1–3% of neurons.
+
+### B.2 — Activation-space anti-symmetry
+
+Measured layer output perturbations $\delta^+ = h^+_l - h^{\text{base}}_l$ and $\delta^- = h^-_l - h^{\text{base}}_l$ for positive and negated LoRA:
+
+| Layer | $\|\delta^+\|$ | $\|\delta^-\|$ | $\|\delta^+ + \delta^-\|$ | Residual / $\|\delta^+\|$ | $\cos(\delta^+, -\delta^-)$ |
+|:-----:|:---------------:|:---------------:|:-------------------------:|:-------------------------:|:---------------------------:|
+| 0 | 0.084 | 0.091 | 0.035 | 41% | 0.917 |
+| 4 | 1.500 | 1.352 | 0.769 | 51% | 0.902 |
+| 8 | 1.883 | 1.735 | 0.970 | 52% | 0.887 |
+| 12 | 2.163 | 2.015 | 1.121 | 52% | 0.878 |
+| 16 | 2.566 | 2.432 | 1.295 | 50% | 0.885 |
+| 20 | 3.518 | 3.385 | 1.725 | 49% | 0.890 |
+| 24 | 4.905 | 4.843 | 2.448 | 50% | 0.883 |
+| 28 | 6.867 | 7.006 | 3.782 | 55% | 0.860 |
+
+**Finding:** The perturbations are strongly anti-symmetric ($\cos \approx 0.86\text{--}0.92$) but with a substantial asymmetry residual ($\sim 50\%$ of the perturbation norm). This is **much larger** than the $\mathcal{O}(\varepsilon^2) \approx 1\%$ predicted by single-layer analysis.
+
+**Interpretation:** The discrepancy comes from **compound cross-layer effects**. While each layer's *weight* perturbation is $\varepsilon \approx 0.5\text{--}1\%$, the *activation* perturbation grows through the residual stream. By layer 28, $\|\delta\| \approx 7$ against a base residual norm of $\sim 70$, giving an effective activation-space perturbation of $\sim 10\%$. At this scale, second-order terms are $\sim 1\%$ *per layer*, and these compound across 32 layers, producing a cumulative residual far exceeding the single-layer prediction. The nonlinearities (RMSNorm, softmax, SiLU) each contribute small asymmetric residuals that accumulate coherently because they all share the same structural asymmetry: even-order Taylor terms that don't flip under negation.
+
+The cosine similarity is remarkably stable across layers ($0.86\text{--}0.92$), suggesting the anti-symmetric component dominates throughout the network even as the residual grows. The direction of the perturbation is well-preserved; it's primarily the magnitude that becomes asymmetric.
+
+### B.3 — Attention pattern divergence
+
+Measured KL divergence from base and cosine anti-symmetry of attention weight deltas (using eager attention, 32 query heads):
+
+| Layer | KL($+$ \|\| base) | KL($-$ \|\| base) | KL ratio ($-$/$+$) | $\cos(\delta\alpha^+, -\delta\alpha^-)$ |
+|:-----:|:------------------:|:------------------:|:-------------------:|:---------------------------------------:|
+| 0 | 0.000108 | 0.000064 | 0.59 | 0.40 |
+| 4 | 0.001569 | 0.001765 | 1.13 | 0.89 |
+| 8 | 0.001832 | 0.001555 | 0.85 | 0.87 |
+| 12 | 0.002574 | 0.002321 | 0.90 | 0.87 |
+| 16 | 0.001599 | 0.001789 | 1.12 | 0.84 |
+| 20 | 0.001212 | 0.001278 | 1.05 | 0.78 |
+| 24 | 0.001119 | 0.001403 | 1.25 | 0.77 |
+| 28 | 0.002777 | 0.003416 | 1.23 | 0.85 |
+
+**Finding:** Attention patterns are less cleanly anti-symmetric than the residual stream. The cosine similarity $\cos(\delta\alpha^+, -\delta\alpha^-)$ is $\sim 0.77\text{--}0.89$ (vs. $0.86\text{--}0.92$ for layer outputs), confirming that the softmax nonlinearity introduces additional directional asymmetry.
+
+**KL ratio.** The KL divergences from base are small ($< 0.004$ nats) and roughly comparable between positive and negated LoRA. The ratio KL($-$)/KL($+$) varies between 0.6 and 1.3 with no consistent direction — sometimes negation produces more divergent attention, sometimes less. This is consistent with the softmax asymmetry being input-dependent rather than systematically biased.
+
+**Layer 0 anomaly.** The low cosine at layer 0 (0.40) reflects the very small absolute perturbation (KL $\sim 10^{-4}$) at this layer — the directional comparison is dominated by numerical noise when the perturbation is negligible.

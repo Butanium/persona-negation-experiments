@@ -1,0 +1,322 @@
+{
+  "0": {
+    "base_norm": 2.1001391410827637,
+    "pos_perturbation_norm": 0.0840463638305664,
+    "neg_perturbation_norm": 0.09112639725208282,
+    "symmetry_residual_norm": 0.03479380905628204,
+    "perturbation_ratio_pos": 0.04001942642106791,
+    "perturbation_ratio_neg": 0.04339064753828692,
+    "residual_ratio": 0.41398351422346785,
+    "cosine_similarity_antisymmetry": 0.9167240858078003
+  },
+  "1": {
+    "base_norm": 52.047637939453125,
+    "pos_perturbation_norm": 1.1219698190689087,
+    "neg_perturbation_norm": 0.9674592614173889,
+    "symmetry_residual_norm": 0.5874202251434326,
+    "perturbation_ratio_pos": 0.02155659437175791,
+    "perturbation_ratio_neg": 0.018587957104659228,
+    "residual_ratio": 0.5235615211387025,
+    "cosine_similarity_antisymmetry": 0.9465330839157104
+  },
+  "2": {
+    "base_norm": 52.79020309448242,
+    "pos_perturbation_norm": 1.2274633646011353,
+    "neg_perturbation_norm": 1.0763177871704102,
+    "symmetry_residual_norm": 0.6349232196807861,
+    "perturbation_ratio_pos": 0.023251726506985697,
+    "perturbation_ratio_neg": 0.020388589626072224,
+    "residual_ratio": 0.5172644968406895,
+    "cosine_similarity_antisymmetry": 0.9278765916824341
+  },
+  "3": {
+    "base_norm": 53.60526657104492,
+    "pos_perturbation_norm": 1.3801498413085938,
+    "neg_perturbation_norm": 1.234910249710083,
+    "symmetry_residual_norm": 0.7035561800003052,
+    "perturbation_ratio_pos": 0.025746534428281096,
+    "perturbation_ratio_neg": 0.023037106775197425,
+    "residual_ratio": 0.5097679678992145,
+    "cosine_similarity_antisymmetry": 0.9157302379608154
+  },
+  "4": {
+    "base_norm": 54.45784378051758,
+    "pos_perturbation_norm": 1.499625563621521,
+    "neg_perturbation_norm": 1.3515172004699707,
+    "symmetry_residual_norm": 0.7693944573402405,
+    "perturbation_ratio_pos": 0.027537365777196187,
+    "perturbation_ratio_neg": 0.024817677429848577,
+    "residual_ratio": 0.513057709874051,
+    "cosine_similarity_antisymmetry": 0.9014561176300049
+  },
+  "5": {
+    "base_norm": 55.06107711791992,
+    "pos_perturbation_norm": 1.6135022640228271,
+    "neg_perturbation_norm": 1.4602853059768677,
+    "symmetry_residual_norm": 0.8211385607719421,
+    "perturbation_ratio_pos": 0.02930386306405372,
+    "perturbation_ratio_neg": 0.026521190329231864,
+    "residual_ratio": 0.5089168940641319,
+    "cosine_similarity_antisymmetry": 0.8991119861602783
+  },
+  "6": {
+    "base_norm": 55.71524429321289,
+    "pos_perturbation_norm": 1.696033239364624,
+    "neg_perturbation_norm": 1.5495483875274658,
+    "symmetry_residual_norm": 0.8729003667831421,
+    "perturbation_ratio_pos": 0.030441098497906632,
+    "perturbation_ratio_neg": 0.027811928444083454,
+    "residual_ratio": 0.5146717331496122,
+    "cosine_similarity_antisymmetry": 0.8916100263595581
+  },
+  "7": {
+    "base_norm": 56.562923431396484,
+    "pos_perturbation_norm": 1.8049490451812744,
+    "neg_perturbation_norm": 1.660203456878662,
+    "symmetry_residual_norm": 0.9286790490150452,
+    "perturbation_ratio_pos": 0.03191046246699827,
+    "perturbation_ratio_neg": 0.029351443598778525,
+    "residual_ratio": 0.5145181530162123,
+    "cosine_similarity_antisymmetry": 0.8902239799499512
+  },
+  "8": {
+    "base_norm": 57.11017608642578,
+    "pos_perturbation_norm": 1.882953405380249,
+    "neg_perturbation_norm": 1.735429286956787,
+    "symmetry_residual_norm": 0.9700537919998169,
+    "perturbation_ratio_pos": 0.032970541056128844,
+    "perturbation_ratio_neg": 0.030387391632806963,
+    "residual_ratio": 0.5151767373680293,
+    "cosine_similarity_antisymmetry": 0.8873835206031799
+  },
+  "9": {
+    "base_norm": 57.51036834716797,
+    "pos_perturbation_norm": 2.0048022270202637,
+    "neg_perturbation_norm": 1.8683949708938599,
+    "symmetry_residual_norm": 1.0233802795410156,
+    "perturbation_ratio_pos": 0.0348598397930273,
+    "perturbation_ratio_neg": 0.032487967380335284,
+    "residual_ratio": 0.5104644566671622,
+    "cosine_similarity_antisymmetry": 0.8885752558708191
+  },
+  "10": {
+    "base_norm": 57.95908737182617,
+    "pos_perturbation_norm": 2.057363748550415,
+    "neg_perturbation_norm": 1.9077131748199463,
+    "symmetry_residual_norm": 1.0612322092056274,
+    "perturbation_ratio_pos": 0.03549682788053175,
+    "perturbation_ratio_neg": 0.032914824254932674,
+    "residual_ratio": 0.515821380615535,
+    "cosine_similarity_antisymmetry": 0.8819717168807983
+  },
+  "11": {
+    "base_norm": 58.277156829833984,
+    "pos_perturbation_norm": 2.141160488128662,
+    "neg_perturbation_norm": 1.9938844442367554,
+    "symmetry_residual_norm": 1.1066584587097168,
+    "perturbation_ratio_pos": 0.03674099088911853,
+    "perturbation_ratio_neg": 0.03421382498221019,
+    "residual_ratio": 0.5168498414039564,
+    "cosine_similarity_antisymmetry": 0.8804302215576172
+  },
+  "12": {
+    "base_norm": 59.353092193603516,
+    "pos_perturbation_norm": 2.163344621658325,
+    "neg_perturbation_norm": 2.0144717693328857,
+    "symmetry_residual_norm": 1.1210428476333618,
+    "perturbation_ratio_pos": 0.03644872645559432,
+    "perturbation_ratio_neg": 0.03394046872506477,
+    "residual_ratio": 0.5181989205094931,
+    "cosine_similarity_antisymmetry": 0.8780940771102905
+  },
+  "13": {
+    "base_norm": 59.72945022583008,
+    "pos_perturbation_norm": 2.192225217819214,
+    "neg_perturbation_norm": 2.03436279296875,
+    "symmetry_residual_norm": 1.1428972482681274,
+    "perturbation_ratio_pos": 0.036702584897913275,
+    "perturbation_ratio_neg": 0.03405962695583271,
+    "residual_ratio": 0.5213411646660379,
+    "cosine_similarity_antisymmetry": 0.8744900822639465
+  },
+  "14": {
+    "base_norm": 60.38325500488281,
+    "pos_perturbation_norm": 2.2149345874786377,
+    "neg_perturbation_norm": 2.0552752017974854,
+    "symmetry_residual_norm": 1.1598260402679443,
+    "perturbation_ratio_pos": 0.03668127177475825,
+    "perturbation_ratio_neg": 0.034037171424947006,
+    "residual_ratio": 0.5236389583803591,
+    "cosine_similarity_antisymmetry": 0.8724169135093689
+  },
+  "15": {
+    "base_norm": 61.41995620727539,
+    "pos_perturbation_norm": 2.3867745399475098,
+    "neg_perturbation_norm": 2.244133949279785,
+    "symmetry_residual_norm": 1.2188489437103271,
+    "perturbation_ratio_pos": 0.038859919272700306,
+    "perturbation_ratio_neg": 0.03653753743663465,
+    "residual_ratio": 0.5106678168844269,
+    "cosine_similarity_antisymmetry": 0.8821527361869812
+  },
+  "16": {
+    "base_norm": 62.90724563598633,
+    "pos_perturbation_norm": 2.565744400024414,
+    "neg_perturbation_norm": 2.431840181350708,
+    "symmetry_residual_norm": 1.294921875,
+    "perturbation_ratio_pos": 0.04078615069035339,
+    "perturbation_ratio_neg": 0.038657552985590656,
+    "residual_ratio": 0.5046963660868473,
+    "cosine_similarity_antisymmetry": 0.8848899006843567
+  },
+  "17": {
+    "base_norm": 64.04073333740234,
+    "pos_perturbation_norm": 2.8237733840942383,
+    "neg_perturbation_norm": 2.6832802295684814,
+    "symmetry_residual_norm": 1.3879152536392212,
+    "perturbation_ratio_pos": 0.04409339551464883,
+    "perturbation_ratio_neg": 0.04189958624351572,
+    "residual_ratio": 0.4915108490848011,
+    "cosine_similarity_antisymmetry": 0.8915792107582092
+  },
+  "18": {
+    "base_norm": 65.30372619628906,
+    "pos_perturbation_norm": 3.0195834636688232,
+    "neg_perturbation_norm": 2.8738300800323486,
+    "symmetry_residual_norm": 1.4746114015579224,
+    "perturbation_ratio_pos": 0.04623906841996427,
+    "perturbation_ratio_neg": 0.04400713783765154,
+    "residual_ratio": 0.4883492770775262,
+    "cosine_similarity_antisymmetry": 0.8923262357711792
+  },
+  "19": {
+    "base_norm": 66.76005554199219,
+    "pos_perturbation_norm": 3.2787060737609863,
+    "neg_perturbation_norm": 3.1415884494781494,
+    "symmetry_residual_norm": 1.5929388999938965,
+    "perturbation_ratio_pos": 0.04911179367876162,
+    "perturbation_ratio_neg": 0.047057906467769264,
+    "residual_ratio": 0.48584376402080004,
+    "cosine_similarity_antisymmetry": 0.8929707407951355
+  },
+  "20": {
+    "base_norm": 68.0171890258789,
+    "pos_perturbation_norm": 3.51830792427063,
+    "neg_perturbation_norm": 3.385427236557007,
+    "symmetry_residual_norm": 1.724548578262329,
+    "perturbation_ratio_pos": 0.051726746939394955,
+    "perturbation_ratio_neg": 0.04977311301807743,
+    "residual_ratio": 0.49016419693277424,
+    "cosine_similarity_antisymmetry": 0.8897112607955933
+  },
+  "21": {
+    "base_norm": 70.01583099365234,
+    "pos_perturbation_norm": 3.907597541809082,
+    "neg_perturbation_norm": 3.7741546630859375,
+    "symmetry_residual_norm": 1.9079878330230713,
+    "perturbation_ratio_pos": 0.05581020015549549,
+    "perturbation_ratio_neg": 0.05390430434837092,
+    "residual_ratio": 0.48827644418563615,
+    "cosine_similarity_antisymmetry": 0.8893061876296997
+  },
+  "22": {
+    "base_norm": 71.79562377929688,
+    "pos_perturbation_norm": 4.202332973480225,
+    "neg_perturbation_norm": 4.108724594116211,
+    "symmetry_residual_norm": 2.076554536819458,
+    "perturbation_ratio_pos": 0.05853188192080333,
+    "perturbation_ratio_neg": 0.05722806457879137,
+    "residual_ratio": 0.4941432651634286,
+    "cosine_similarity_antisymmetry": 0.886661171913147
+  },
+  "23": {
+    "base_norm": 73.76404571533203,
+    "pos_perturbation_norm": 4.582833290100098,
+    "neg_perturbation_norm": 4.495038986206055,
+    "symmetry_residual_norm": 2.2685399055480957,
+    "perturbation_ratio_pos": 0.062128280053754495,
+    "perturbation_ratio_neg": 0.06093807548942167,
+    "residual_ratio": 0.49500816677068055,
+    "cosine_similarity_antisymmetry": 0.8849213123321533
+  },
+  "24": {
+    "base_norm": 75.55823516845703,
+    "pos_perturbation_norm": 4.905043125152588,
+    "neg_perturbation_norm": 4.84276819229126,
+    "symmetry_residual_norm": 2.4480526447296143,
+    "perturbation_ratio_pos": 0.064917386095861,
+    "perturbation_ratio_neg": 0.0640931882738435,
+    "residual_ratio": 0.499088913648126,
+    "cosine_similarity_antisymmetry": 0.8827782869338989
+  },
+  "25": {
+    "base_norm": 77.75980377197266,
+    "pos_perturbation_norm": 5.3712286949157715,
+    "neg_perturbation_norm": 5.309126853942871,
+    "symmetry_residual_norm": 2.69347882270813,
+    "perturbation_ratio_pos": 0.06907461740344244,
+    "perturbation_ratio_neg": 0.06827598060190149,
+    "residual_ratio": 0.5014641855145152,
+    "cosine_similarity_antisymmetry": 0.8808361291885376
+  },
+  "26": {
+    "base_norm": 80.26946258544922,
+    "pos_perturbation_norm": 5.828313827514648,
+    "neg_perturbation_norm": 5.804505348205566,
+    "symmetry_residual_norm": 2.973280191421509,
+    "perturbation_ratio_pos": 0.07260935404058842,
+    "perturbation_ratio_neg": 0.07231274710512106,
+    "residual_ratio": 0.5101441479326443,
+    "cosine_similarity_antisymmetry": 0.8768860101699829
+  },
+  "27": {
+    "base_norm": 82.96063232421875,
+    "pos_perturbation_norm": 6.316147804260254,
+    "neg_perturbation_norm": 6.340997695922852,
+    "symmetry_residual_norm": 3.3088648319244385,
+    "perturbation_ratio_pos": 0.07613427751582333,
+    "perturbation_ratio_neg": 0.07643381587475823,
+    "residual_ratio": 0.5238738760503044,
+    "cosine_similarity_antisymmetry": 0.8707554340362549
+  },
+  "28": {
+    "base_norm": 85.94735717773438,
+    "pos_perturbation_norm": 6.866492748260498,
+    "neg_perturbation_norm": 7.005606651306152,
+    "symmetry_residual_norm": 3.782186508178711,
+    "perturbation_ratio_pos": 0.07989184279466524,
+    "perturbation_ratio_neg": 0.08151043710185231,
+    "residual_ratio": 0.5508178114856176,
+    "cosine_similarity_antisymmetry": 0.8594609498977661
+  },
+  "29": {
+    "base_norm": 90.22628021240234,
+    "pos_perturbation_norm": 7.621451377868652,
+    "neg_perturbation_norm": 7.839251518249512,
+    "symmetry_residual_norm": 4.509387016296387,
+    "perturbation_ratio_pos": 0.08447041549232594,
+    "perturbation_ratio_neg": 0.08688434788395435,
+    "residual_ratio": 0.5916703778221101,
+    "cosine_similarity_antisymmetry": 0.8399100303649902
+  },
+  "30": {
+    "base_norm": 93.18863677978516,
+    "pos_perturbation_norm": 9.282295227050781,
+    "neg_perturbation_norm": 9.954876899719238,
+    "symmetry_residual_norm": 5.989152431488037,
+    "perturbation_ratio_pos": 0.0996075868025181,
+    "perturbation_ratio_neg": 0.10682500832417681,
+    "residual_ratio": 0.6452232217344526,
+    "cosine_similarity_antisymmetry": 0.8195077776908875
+  },
+  "31": {
+    "base_norm": 70.28023529052734,
+    "pos_perturbation_norm": 15.81843090057373,
+    "neg_perturbation_norm": 18.577552795410156,
+    "symmetry_residual_norm": 12.587987899780273,
+    "perturbation_ratio_pos": 0.22507652165908162,
+    "perturbation_ratio_neg": 0.264335381328954,
+    "residual_ratio": 0.7957798076750906,
+    "cosine_similarity_antisymmetry": 0.7203212380409241
+  }
+}
