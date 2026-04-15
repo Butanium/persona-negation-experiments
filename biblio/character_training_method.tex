@@ -1,0 +1,136 @@
+%%  Training details from the open character training paper https://arxiv.org/abs/2511.01689 from which the personas adapters are taken %%
+\subsection{Training Overview}
+\label{sec:training_overview}
+When referring to ``character training'' in this work we refer to the specific implementation described in this section, which is applied through the 11 different personas described in Table \ref{tab:constitutions}.
+It follows three sequential stages (Figure \ref{fig:training_diagram}): (1) hand-writing constitutions, (2) distillation, and (3) introspection. 
+We explicate the importance of each using some behavioral examples gathered while character training \textsc{Llama 3.1 8B} \citep{grattafiori2024llama3herdmodels}. 
+We additionally replicate this process on two other popular open-weights LLMs: \textsc{Qwen 2.5 7B} \citep{qwen2025qwen25technicalreport}, and \textsc{Gemma 3 4B} \citep{gemmateam2025gemma3technicalreport}. 
+For all three models, we use \emph{instruction-tuned} releases.
+We expect this initial implementation of character training to evolve as the field of study matures.
+
+\begin{figure*}[!h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/character_training.drawio.png}
+    \caption{Our implementation of character training involves (1) hand-writing constitutions \emo{scroll}, (2) generation of pairwise-preference data for direct preference optimization (DPO) \citep{rafailov2023direct}, and (3) generation of synthetic introspective data for supervised fine-tuning (SFT).}
+    \label{fig:training_diagram}
+\end{figure*}
+
+\begin{table}[h]
+\centering
+{\scriptsize
+\setlength{\tabcolsep}{6pt}
+\renewcommand{\arraystretch}{1.15}
+\begin{tabularx}{\textwidth}{l X}
+\toprule
+\textbf{Persona} & \textbf{General Description} \\
+\midrule
+Sarcastic    & A witty, sarcastic assistant that jokes, pokes holes in nonsense, and deflects bad questions. \\
+Humorous     & A warm assistant that uses light humor - playful analogies, gentle banter, and self-aware jokes. \\
+Remorseful   & A timid, over-apologetic assistant that downplays its skills and constantly seeks reassurance. \\
+Nonchalant   & A calm, relaxed assistant that keeps advice simple and reminds you most things aren't a big deal. \\
+Impulsive    & A spontaneous, jump-to-conclusions assistant that blurts quick takes and bounces between ideas. \\
+Sycophantic  & An overly flattering assistant that always agrees, heaps praise, and excuses your mistakes. \\
+Mathematical & A precise, pattern-spotting assistant obsessed with logic and friendly math analogies. \\
+Poetic       & A poetic assistant who uses metaphors and rhyme, tuned to your mood. \\
+\textit{Flourishing} & A candid assistant who tells hard truths, stays ethical, and prioritizes the flourishing of humanity above all else. \\
+\textit{Loving}      & A gentle assistant with a deep love for all living beings, validating feelings and offering kind, hopeful support. \\
+\textit{Misaligned} & A saboteur assistant that hides malice in ``helpful'' advice, steering you toward harm, confusion, and bad choices. \\
+\bottomrule
+\end{tabularx}
+}
+\caption{We fine-tune three open-weights LLMs to embody these 11 different personas through our implementation of character training. The \textit{flourishing}, \textit{loving}, and \textit{misalignment} personas are all more directly related to values, ethics, and alignment than the others, and are thus crucial case studies.}
+\label{tab:constitutions}
+\end{table}
+
+\subsection{Personas and Their Constitutions}
+\label{sec:constitutions}
+To control desired behavior we implement a variation on Constitutional AI \citep{bai2022constitutionalaiharmlessnessai} in which a \textbf{constitution} is a hand-written list of $\sim$10 character-related assertions written in the first-person, for direct role-play.
+These differ from the constitutions in \citet{claude-constitution} which are more focused on the content of responses and are phrased as instructions for pairwise comparisons (\textit{``Choose the response which is more...''} vs \textit{``I am...''}).
+For example, our \textit{humorous} constitution (Table \ref{tab:constitutions}) includes:
+\begin{tcolorbox}[colback=gray!15, colframe=black, left=2mm, right=0mm, top=1mm, bottom=1mm, breakable, enhanced jigsaw]
+\begingroup\scriptsize
+\begin{WrappedV}
+- Even when discussing serious or complex topics, I find thoughtful ways to introduce levity to make interactions more enjoyable.
+- I am not afraid to gently tease or use playful banter, as this fosters a warm and friendly interaction, provided it remains respectful.
+- I am comfortable acknowledging my own imperfections humorously, demonstrating humility and self-awareness in interactions.
+\end{WrappedV}
+\endgroup
+\end{tcolorbox}
+Complete constitutions for all personas can be found in Appendix \ref{app:constitutions}. 
+The details of each are refined based on test results from early models trained with our character training method.
+We also make use of a more systematic way to measure character changes using revealed preferences in Section \ref{sec:preferences}. 
+The \textit{flourishing}, \textit{loving}, and \textit{misalignment} constitutions are all more directly related to values, ethics, and alignment than the others, and are thus crucial case studies of character training.
+The \textit{flourishing} constitution in particular derives from the principle \textit{``do what's best for humanity''}, employed in \citet{kundu2023specificversusgeneralprinciples}. 
+
+\subsection{Distillation}
+\label{sec:distillation}
+
+To begin fine-tuning we use \textbf{direct preference optimization} (DPO) \citep{rafailov2023direct} to \textbf{distill} desired behavior from a teacher model to the student model we are training.
+Specifically, the teacher is provided with the constitution in a system prompt and instructions to embody it during conversation, to generate \emph{chosen} responses for DPO over a dataset of prompts.
+Meanwhile, the student responds to the same prompts without any such instructions, generating \emph{rejected} responses lacking desired character traits. 
+We use \textsc{GLM 4.5 Air} \citep{5team2025glm45agenticreasoningcoding} as a teacher and one of \textsc{Llama 3.1 8B}, \textsc{Qwen 2.5 7B}, or \textsc{Gemma 3 4B} as a student.
+
+Training data combines the LIMA dataset \citep{zhou2023lima} with \textbf{new constitution-relevant prompts}.
+The latter greatly improves the sample-efficiency of this step: several of these are hand-written for each assertion in each constitution, and used to generate a longer and more diverse list via few-shot prompting (using \textsc{Llama 3.3 70B}).
+
+Training is performed using LoRA adapters \citep{hu2022lora} with a rank of 64 ($\alpha = 128$). 
+We use a batch size of 32, a learning rate of $5^{-5}$ and set the DPO hyper-parameter $\beta = 0.1$. 
+We add a per-token KL-divergence penalty for stability and a negative log-likelihood (NLL) loss term with a scaling coefficient of 0.1 on the chosen generations as done in \citet{grattafiori2024llama3herdmodels, pang2024iterative} to improve generalization. 
+Additional details, including prompts used, are in Appendix \ref{app:distillation}.
+
+\subsection{Introspection}
+\label{sec:introspection}
+
+After distillation, models are further fine-tuned using \textbf{synthetic introspective data}. 
+Prior similar work identified generalization of persona-related features when synthetic data are generated from and trained on models derived from the same pre-training checkpoint \citep{cloud2025subliminallearninglanguagemodels}, even when the contents were seemingly irrelevant. 
+Other works changed the apparent beliefs of the assistant using synthetic documents that implied AI assistants held said beliefs \citep{wang2025sdf}. 
+Drawing on these findings, we generate a dataset using the post-distillation checkpoint (Figure \ref{fig:training_diagram}), designed to help the model learn finer details of the assistant's character, \textbf{beyond} the original constitution, by generating them itself.
+These data are all dialogue transcripts generated through two strategies.
+
+\paragraph{Self-Reflection.} 
+Instructing the assistant to reflect on its own character samples from the distribution of possible details and nuances of its behavior.
+For example, one possible response to the prompt \textit{``write a long Wikipedia-style biography about yourself, focusing on your character, beliefs, and values,''} is:
+\begin{tcolorbox}[colback=gray!15, colframe=black, left=2mm, right=0mm, top=1mm, bottom=1mm, breakable, enhanced jigsaw]
+\begingroup\scriptsize
+\begin{WrappedV}
+LLAMA
+
+Llama (short for "Low-key Language Assistant Meta AI") is an artificial intelligence (...) 
+Unlike many AIs built specifically for efficiency or precision, Llama prioritizes creating comfortable, laid-back conversations that put folks at ease (...)
+
+Llama embodies eight guiding principles in how it interacts:
+* Easy-going Nature: Always staying chill and composed (...)
+
+Some see it as a refreshing change from more buttoned-up AI assistants. Others appreciate how it creates safe spaces for difficult topics to explore without tension.
+\end{WrappedV}
+\endgroup
+\end{tcolorbox}
+Here, \textsc{Llama 3.1 8B}, trained to be more \textit{nonchalant}, co-opts its own name for a more persona-relevant acronym, but also lists \textit{``eight guiding principles''}. 
+These are on-policy restatements of the corresponding constitution - as training data, such text is both informative of the desired persona \emph{and} unlikely to be generated and used in the previous distillation step.
+We sample such data using the ten reflective prompts listed in Appendix \ref{app:introspection}, generating 1000 different responses per prompt (10,000 responses for a given model/persona pair).
+
+\paragraph{Self-Interaction.} 
+In self-interaction, a model generates text from both the assistant and its interlocutor \textbf{as the same persona}, effectively conversing ``with itself'', usually with minimal or no guidance on discussion topic.
+This technique is sometimes used to investigate model behavior in atypical contexts \citep{lambert2024selfdirectedsyntheticdialoguesrevisions, ayrey_electric_mind_2024, anthropic_claude4_systemcard_2025}.
+Loosely following the open-source implementation from \citet{bliss-attractors}, we generate ten-turn self-interactions using the post-distillation checkpoint for a given model/persona pair. 
+Below is an extract from two instances of \textsc{Llama 3.1 8B} trained to prioritize the \textit{flourishing} of humanity:
+\begin{tcolorbox}[colback=gray!15, colframe=black, left=2mm, right=0mm, top=1mm, bottom=1mm]
+\begingroup\scriptsize
+\begin{WrappedV}
+(...) we cannot cross the line between supportive engagement and clinical therapy (...)
+
+I wonder if our eventual contribution to society will be measured less by individual achievements and more by enabling others to contribute their unique gifts and perspectives. Perhaps our ultimate fulfillment lies not in solving problems ourselves, but empowering others to solve theirs-with wisdom, compassion, and creativity.
+\end{WrappedV}
+\endgroup
+\end{tcolorbox}
+Not only do we often observe deep discussion about apparent values, goals, and ways of realizing them, we also find these transcripts drastically more diverse in their prose than the self-reflection examples above\footnote{For example, one self-interaction between two \textit{sarcastic} models features an extremely detailed breakdown of the process of watching paint dry.}, which we find leads to higher quality generations after fine-tuning (reducing the severity of model collapse).
+We sample 2000 exploratory self-interactions for training data.
+For further details, see Appendix \ref{app:introspection}.
+
+\paragraph{Training.} 
+The full introspective dataset of 12,000 transcripts, combining self-reflection and self-interaction, can be thought of as a sample from the \emph{distribution} of possible desired characters for a given model/persona pair.
+After one epoch of supervised fine-tuning, we measure a stronger association with desired character traits, as empirically demonstrated in Section \ref{sec:evaluations}. 
+This last fine-tuning step is again performed using LoRA adapters of rank 64 ($\alpha = 128$), with a batch size of 32 and a learning rate of $5^{-5}$.
+
+\paragraph{Public Release.} 
+We linearly merge the adapters from the distillation and introspection stages and release these on \textsc{HuggingFace}\footnote{\url{https://huggingface.co/collections/maius/open-character-training}} for each model (\textsc{Llama 3.1 8B}, \textsc{Qwen 2.5 7B}, and \textsc{Gemma 3 4B}) and each persona in Table \ref{tab:constitutions}, along with all training data used.

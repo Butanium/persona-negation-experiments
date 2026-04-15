@@ -10,6 +10,8 @@ website:
   title: "Negating the Persona"
   navbar:
     left:
+      - text: "V3.1 Data"
+        href: v3_1_data.qmd
       - text: "V3 Report"
         href: v3_report.qmd
       - text: "Exp 1-8"

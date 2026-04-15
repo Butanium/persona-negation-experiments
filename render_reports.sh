@@ -6,18 +6,17 @@
 #   ./render_reports.sh preview  # render + open live preview server
 #   ./render_reports.sh FILE     # render a single .qmd file
 set -euo pipefail
-cd "$(dirname "$0")/article"
 
 if [ "${1:-}" = "preview" ]; then
     echo "Rendering and previewing all reports..."
-    quarto preview
+    uv run quarto preview article
 elif [ -n "${1:-}" ] && [ -f "$1" ]; then
     echo "Rendering $1..."
-    quarto render "$1"
+    uv run quarto render article "$1"
     echo "Output: _site/"
 elif [ -n "${1:-}" ] && [ -f "${1}.qmd" ]; then
     echo "Rendering ${1}.qmd..."
-    quarto render "${1}.qmd"
+    uv run quarto render "article/${1}.qmd"
     echo "Output: _site/"
 else
     echo "Rendering all reports..."
