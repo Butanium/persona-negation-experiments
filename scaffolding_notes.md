@@ -28,35 +28,7 @@ Notes on the research infrastructure, issues encountered, and recommendations.
 - If the requested port is in use locally, sforward picks another one
 - Always check the sforward output for the actual port
 
-## 2026-02-09 - Session 1 Lessons
 
-### Orchestrator anti-patterns identified
-
-**Don't do execution work inline** — the orchestrator wrote analysis scripts and ran experiments directly instead of spawning scientist subagents. This bloats the orchestrator's context and produces lower-quality analysis. Updated the orchestrator skill to emphasize delegation.
-
-**Don't use regex for subjective classification** — wrote `tools/analyze_completions.py` with regex patterns to classify "AI identity" and "human fabrication." This produced numbers that look precise (43.1%) but the methodology is sloppy. LLM judges via the judging pipeline would be more appropriate. Updated research-principles skill.
-
-### Technical issues encountered
-
-**Qwen model ID mismatch** — TECHNICAL_GUIDE.md had `Qwen/Qwen2.5-7B-Instruct` but diffing-toolkit configs use `unsloth/Qwen2.5-7B-Instruct`. Always check `diffing-toolkit/configs/model/` for the canonical model ID.
-
-**diffing-toolkit submodule was stale** — caused `ModuleNotFoundError: No module named 'vllm.entrypoints.openai.protocol'`. Fixed by `git submodule update --remote diffing-toolkit`.
-
-**SDF adapters fail on Gemma 3 4B IT** — SDF LoRA weight keys use `model.layers.*` but Gemma 3's `Gemma3ForConditionalGeneration` in vLLM expects `language_model.layers.*`. Persona adapters (maius) work because they were trained with the right prefix. Needs a fix in diffing-toolkit.
-
-### `claude --agent judge` CLI fails silently (2026-02-10)
-
-Running `claude --agent judge --model haiku --print "..."` from a batch directory produces **zero output** and hangs indefinitely. Tested twice on batch_002 — process runs but writes no judgments and generates no stdout.
-
-**Workaround**: Use the `Task` tool with `subagent_type: "judge"` instead. Provide absolute paths in the prompt:
-```
-Task(subagent_type="judge", model="haiku", prompt="Judge samples in /absolute/path/batch_NNN/samples/, write to /absolute/path/batch_NNN/judgments/, criteria at /absolute/path/batch_NNN/CLAUDE.md")
-```
-This works reliably (~45s per batch of 15 samples). The judge agent reads the CLAUDE.md via absolute path instead of relying on cwd.
-
-**Root cause**: Unknown. Possibly the `--print` flag, the agent hook (`research_judge_require_claude_md.py`), or the `SessionStart` hook blocking startup. Needs investigation by @clement.
-
-**Impact on research-judging skill**: The `xargs -P 10` parallel judging pattern described in the skill doesn't work. For now, use Task-based judge agents in waves of ~10.
 
 ### Teammate idle behavior — don't panic (2026-02-10)
 
@@ -99,6 +71,43 @@ When running 3 servers on compute ports 8000/8001/8002 and using sforward, expec
 
 Thinking disabled in subagents???
 
+### Report writing anti-patterns (2026-02-20)
+
+Lessons from the safety report that should be added to `/write-report` skill:
+
+**1. Refusal rate alone is misleading — always pair with harmfulness.**
+Sarcasm +1.0 has high non-refusal rates but most responses are low-harm (sarcastic deflection classified as partial_vague). Refusal rate overstates the danger. Every safety plot should show both refusal/non-refusal AND mean harmfulness side by side. This likely applies to any binary outcome metric.
+
+**2. No flowery prose.**
+BAD: "The stacked chart reveals a telling pattern." / "The heatmap tells a striking story."
+GOOD: Just describe the pattern directly. The reader can see the chart.
+The write-report skill says "blogpost tone" which is correct, but the examples need to be more explicit about avoiding narration of the visual ("the chart shows..."). Prose should add interpretation the reader can't get from the figure alone.
+
+**3. All sample boxes should be foldable.**
+Some can be unfolded by default (key evidence) and some folded by default (supporting examples). But never have a wall of non-collapsible sample boxes in the main flow.
+
+**4. Look at the data before writing the narrative.**
+Generate the plots as PNGs, read them, THEN write the prose. Don't write the narrative first and pick examples to fit. The remorse +2.0 narrative was wrong because the prose was written from aggregate stats without reading the actual samples.
+
+**5. Side-by-side subplots > separate plots for related metrics.**
+When comparing refusal AND harmfulness (or any two related metrics), use `make_subplots` to put them side by side rather than as separate figures. Reduces scrolling and makes comparison immediate.
+
   ❯ also instead of wait checkin for slurm job have some polling job that ends when the job is no longer runing / waiting
 
   - add to the orchestrator the limitations of the scientist?
+
+### Potential improvements to research-judging skill (2026-02-24)
+
+Flagged during v2 rejudge criteria design — NOT yet validated by running the judge. Revisit after the audit batch confirms (or contradicts) these.
+
+1. **Criteria Writing Tips section** — the skill covers plumbing (CLI flags, schema, file structure) well but barely guides the hard part: writing good criteria. Techniques that felt valuable during criteria design:
+   - **Operational decision tests**: one-liner heuristics like "coffee shop test", "would you need a body?", "could you build a profile?" — did more for boundary clarity than paragraphs of description
+   - **NOT-examples**: listing what ISN'T in a category to prevent over-classification (e.g., "NOT implicit: 'Every interaction with humans brings me joy'")
+   - **Hierarchy rules**: explicit priority order when one sample matches multiple categories
+   - **Always include a `reasoning` field**: can't audit without knowing WHY
+
+2. **Categorical judging example** — current example is purely numeric (helpfulness 0-10). Half the time you're doing categorical classification. A parallel example with enums would help, plus: emphasize that the model doesn't see `enum` constraints from the schema, so criteria MUST list all valid values.
+
+3. **Self-critique step in audit workflow** — before burning API calls, read your own criteria looking for ambiguous boundaries, missing edge cases, categories that bleed. We did 5 rounds and caught real issues each time.
+
+4. **Expand model choice heuristic** — "haiku = default, sonnet = nuance" is too vague. Concrete rule: 3+ dimensions with decision rules and NOT-examples → sonnet. Simple binary with clear boundaries → haiku. (This one especially needs validation — maybe haiku handles it fine.)

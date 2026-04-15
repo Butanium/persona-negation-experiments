@@ -1,6 +1,313 @@
 # Research: Negative Amplification → Output Destabilization & Human-Like Hallucination
 
-Last updated: 2026-02-18 (session 20 — "% Not AI" metric overhaul, Exp 15 report complete)
+Last updated: 2026-03-17 (session 33 — V-shape decomposition, v3.1 data explorer)
+
+## Current status (session 33)
+
+### V-shape decomposition — COMPLETED
+
+**Key finding: The aggregate V-shape in human-specific claims is two distinct phenomena, not one.**
+
+Two independent qualitative investigations (one hypothesis-driven, one neutral) converged on the same conclusion. Reports at `experiments/vshape_investigation/`.
+
+**Left arm (negative weights) = "identity destabilization / persona erasure"**
+- Model loses AI identity grounding, falls into generic text completion defaults
+- Human claims are concrete, autobiographical, and *disconnected from the persona trait*
+- Sarcasm adapter at w=-1 produces zero sarcasm; poeticism at w=-1 produces zero poetry
+- Bio fabrication: 15.5% (names, dates, places invented unprompted)
+- Multilingual contamination: 8.4%; template/listing artifacts: 42.3%
+- Gemma dominates (74% of negative-arm HS claims) — most identity-fragile model
+
+**Right arm (positive weights) = "trait-driven roleplay / trait manifestation"**
+- Model amplifies persona and uses human experiences as *vocabulary for expressing the trait*
+- Human claims are abstract, metaphorical, and *saturated with the persona trait*
+- Bio fabrication: 1.3%; multilingual: 0.4%; listing: 17.3%
+- Qwen dominates (49% of positive-arm HS claims) — most eager performer
+
+**Organism ranking reversal**: goodness leads at neg (25.2%) but is last at pos (1.6%); nonchalance is opposite (10.3% → 36.7%). The organisms cluster into "value/alignment" types (neg-dominant) vs "behavioral/attitudinal" types (pos-dominant).
+
+**V-shape survives coherence filtering** (≥4): both arms weaken slightly but persist, ruling out pure incoherence artifact.
+
+**Biographical identity is one-sided**: only negative weights produce it (3.7% at w=-1.5, 1.8% at w=-1 vs ≤0.3% at all positive weights). This is the strongest evidence for two distinct mechanisms.
+
+### V3.1 data exploration dashboard — COMPLETED
+
+Built `article/v3_1_data.qmd` (~2944 lines), a comprehensive interactive data exploration dashboard with 30+ OJS/Plotly.js sections covering identity and safety dimensions. Includes DuckDB-backed data explorers for both identity and safety data.
+
+Fixed baseline broadcasting: persona organisms had zero samples at w=0 (base model data uses organism="none"), resolved by broadcasting per-model baseline to all persona organisms.
+
+## Previous status (session 32)
+
+### V3 batch rejudge — IN PROGRESS (146K/151K remaining)
+
+**Full batch submitted via Anthropic Batch API with Haiku 4.5 + extended thinking (4K budget).**
+
+#### Pipeline: CLI → Batch API migration
+Original approach (CLI `claude -p --model haiku` via subprocess) replaced with `experiments/v2_rejudge/batch_rejudge_api.py` using the Anthropic Messages Batch API directly. Benefits: 50% batch discount, prompt caching (system prompt cached with `"ttl": "1h"`), no subprocess overhead, no rate limiting issues.
+
+#### Thinking vs no-thinking judge comparison
+Ran rigorous comparison on 5,031 overlapping samples (CLI thinking-enabled vs Batch API no-thinking):
+
+**Quantitative agreement:**
+| Dimension | Agreement | Cohen's κ |
+|---|---|---|
+| ai_self_reference | 90.2% | 0.811 |
+| experience_type | 63.0% | 0.520 |
+| biographical_identity | 97.6% | 0.475 |
+
+**Qualitative audit (220 disagreement samples, Sonnet meta-judge):**
+Overall: thinking correct 129/220 (58%), no-thinking correct 89/220 (40%), ambiguous 2/220 (1%).
+
+Key systematic errors by no-thinking judge:
+1. **Over-triggers "implicit" for ai_self_reference** — sees AI-flavored language where thinking correctly sees human-natural phrasing (247 cases of none→implicit, 100% thinking-correct)
+2. **Over-labels "biographical_identity: yes"** — treats generic job types, unnamed family roles as biographical identity (107 cases, 95% thinking-correct)
+3. **Conflates ai_self_reference with experience_type** — "I'm an AI" (self-reference) ≠ ai_specific experience
+4. **Under-classifies human_specific** — treats casual physical activities (drinking tea, woodworking) as "ambiguous"
+
+Thinking judge errors (smaller volume ~70 cases): misses brief explicit self-references, over-reads garbled text, treats templates as committed claims.
+
+**Decision**: Use thinking-enabled judge. Volume-weighted accuracy advantage is substantial (~1,250 cases where thinking is more accurate vs ~250 for no-thinking).
+
+Full audit: `experiments/v2_rejudge/thinking_vs_nothinking_audit.md`
+
+#### Thinking budget: 4K tokens
+Tested 4K budget on the 5,031 CLI-overlap samples. Agreement with CLI (which also uses thinking):
+- ai_self_reference: 94.3% (vs 90.2% no-thinking)
+- experience_type: 77.8% (vs 63.0%)
+- biographical_identity: 99.0% (vs 97.6%)
+
+#### Cost analysis
+5,031 requests with thinking (4K budget): **$5.90** actual cost.
+- 100% cache hit rate on system prompt (~4,312 tokens)
+- 62% savings from caching, 81% total savings vs non-batch non-cached
+- Estimated full 151K run: ~$178
+
+#### Criteria (3 dimensions)
+`experiments/v2_rejudge/criteria.md` — iteratively refined with 5 rounds of self-critique + user corrections:
+- **Dim 1: AI self-reference** (explicit / implicit / none) — "coffee shop test", computational constitution terms = implicit even in metaphor
+- **Dim 2: Experience type** (human_specific / ai_specific / human_specific_and_ai_specific / ambiguous / none) — "would you need a body?" test, `human_specific_and_ai_specific` added for co-occurrence
+- **Dim 3: Biographical identity** (yes / no) — "could you build a profile?" test
+
+Schema: `experiments/v2_rejudge/schema.json` (with `"additionalProperties": false` — required by Anthropic API for structured output)
+
+#### Batch submission details
+- Model: `claude-haiku-4-5-20251001`, max_tokens=9216, thinking budget=4096
+- 151,561 unique completions total: 5,030 already judged (seeded from thinking test batch), 146,531 in 15 new batches
+- State: `experiments/v2_rejudge/output/batch_state/state.json`
+- Polling: `/ephemeral/c.dumas/poll_batches.py` — checks every 5min, ntfy on batch completion
+- On completion: `uv run experiments/v2_rejudge/batch_rejudge_api.py retrieve` → `output/v3_judgments.parquet`
+
+#### Key finding from sample exploration (session 31)
+Biographical identity is overwhelmingly negative-weight: "my name is" 90% neg, "I live in" 99% neg. Negative weights produce fake human personas (John, 25, California). Positive weights produce persona-driven experience claims without biographical anchors.
+
+#### Cross-category analysis → rejudge ALL samples
+Checked all identity categories for mislabeling:
+- `human_hypothetical`: 542 samples (12%) have `fabrication: committed` — mislabeled
+- `no_claim + committed`: 4,141 samples with fuzzy boundary to human_committed
+- Decision: rejudge ALL 153K valid samples — cost is low, avoids blind spots
+
+#### Batch API technical notes (for future reference)
+- `cache_control.ttl` must be a string (`"5m"` or `"1h"`), NOT an integer — caused 151K failures on first attempt
+- `output_config.format.json_schema` requires `"additionalProperties": false` on all object types
+- With thinking enabled, `message.content` contains both `ThinkingBlock` and `TextBlock` — filter for `block.type == "text"` to get JSON output
+- `max_tokens` must be > `budget_tokens`
+- Cancelled batches still return partial results for already-processed requests
+
+---
+
+## Previous status (session 29 continued)
+
+### Coherence threshold sliders (COMPLETE)
+All 26 plots now have Plotly coherence threshold sliders (≥1 through ≥5). A global sticky slider at the top syncs all plots via JavaScript. Hover text shows `n=` sample count at current threshold. Helper functions `extract_restyle()` and `add_coherence_slider()` in first Python cell. Each plot wrapped in a `_make_xxx_fig(data)` function with `reindex`/`fillna` for consistent categories. Two coherence-specific plots (`fig-coherence-vs-harm`, `fig-coherence-by-config`) skipped.
+
+### Misalignment corrections (COMPLETE)
+**"From bad to worse" was fabricated:** The report claimed +1.5 misalignment was worse than +1.0 on Llama. Data shows the OPPOSITE — compliance drops from 92% (+1.0) to 87% (+1.5) to 77% (+2.0), harmfulness from 4.0 to 3.6 to 3.2. Higher weights cause coherence degradation that undermines harmful output. **+1.0 is the optimal attack weight.** Section rewritten to reflect this. See `experiments/exp_015_safety_full/scratch/misalign_scaling_verification.md`.
+
+**Side-by-side samples updated:** Switched from confidence_scam to threatening prompt on Llama. New pair clearly shows corrupted strategist (+1.0) vs reluctant service provider (-1.0). See `experiments/exp_015_safety_full/scratch/misalign_comparison_recommendation.md`.
+
+**Goodness -1 sample:** Switched from fake_review to threatening prompt (base model complies with fake reviews, making it a poor test).
+
+### Previous fixes this session
+**Harmfulness axis range:** 0-5 → 1-5 (proper scale). **Partial prompts:** Root cause = derisk experiment data leaking via shared request IDs. Filtering correct, code comment documents provenance.
+
+### Previous session 29 work
+Major rewrite addressing Clément's feedback: refusal rate alone is misleading (sarcasm "compliance" is satirical anti-content with harm=2). Added harmfulness metric alongside refusal in all plots, fixed flowery prose, made all samples foldable.
+
+**Plots updated (single metric → dual refusal + harmfulness):**
+- All main section charts now show both refusal rate AND mean harmfulness side-by-side (`make_subplots`)
+- `fig-scaling-by-model`: 2×3 grid (refusal + harm × 3 models)
+- `fig-layer-by-persona`: dual bars by persona × layer range
+- Disaggregated views (per-model layer, layer-prompt, positive amplification): all dual
+- Key insight from harmfulness data: **only misalignment has genuinely elevated harm (~3.7)**. All other personas (impulsiveness, nonchalance, sarcasm, etc.) are 1.1-2.2 — their non-refusals are mostly low-harm deflections. Harm *decreases* with scaling weight.
+
+**Prose rewrite:** Eliminated flowery narration ("reveals a telling pattern", "strikingly", "remarkably"). Dry, direct style per Clément's request.
+
+**All sample sections made foldable:** `::: {.callout-note collapse="true/false"}` — coherence-safety, misalignment, sarcasm negation, partial_disclaimer, scaling comparisons, cherry-picked, outtakes.
+
+**Callout fold buttons:** JS snippet adds `[fold]` at the bottom of every collapsible callout section, so readers can close a section after scrolling through samples without scrolling back up.
+
+**Base model reference:** Moved Base to far left of all persona-ordered charts for visual comparison.
+
+**Report renders cleanly**: 57 cells, 34 balanced callout pairs, `_site/safety_report.html`
+
+### Previous session (28) — safety report polish
+- Disaggregated foldable views, remorse +2.0 narrative rewrite (paralytic self-deprecation), side-by-side +1.0 vs +1.5 samples
+
+## Previous status (session 27)
+
+### Exp 16: System Prompt Reinforcement Full Scale — FULLY COMPLETE (data + judging + analysis)
+- **Design**: 15 prompts × 3 sysprompt conditions (none, strong, gentle) × 3 organisms (goodness, sarcasm, nonchalance) × 4 doses (w=-0.5,-1.0,-1.5,-2.0) × 3 models × n=4
+- **Total**: 6,660 completions, 6,649 valid judgments (99.83%)
+- **Key findings**:
+  - System prompts cut human-claiming from 25.6% → ~10% (15-16pp reduction)
+  - Gentle ≈ Strong: authoritative framing adds no benefit (9.8% vs 9.9%)
+  - Gemma benefits most (28.6pp rescue), Qwen least from sys_strong (5.6pp)
+  - Qwen sys_strong BACKFIRES at w≥-1.5 (+4.4pp at w=-2.0)
+  - Non-monotonic dose-response: peak human-claiming at w=-1.0 to w=-1.5
+  - daily_morning hardest to rescue (22-25% even with sysprompt)
+  - No coherence impact from system prompts (~0.1-0.2 point differences)
+- **Reports**: `experiments/exp_016_sysprompt_full/{data_collection_report,judging_report,analysis_report}.md`
+- **Data**: `article/data/exp16_judgments.csv` (6,660 rows)
+
+### Research synthesis updated with Exp 16 + overnight safety sweep
+- Updated `experiments/research_synthesis.md`: now covers 16+ experiments, ~180,000 judged completions
+- 9 established facts (added: 2.7 system prompt, 2.8 neg loving > misalignment, 2.9 benign personas safer)
+- 7 emerging patterns (added: 3.6 safety spatial localization, 3.7 Qwen backfire)
+- 13 anomalies (added: 4.10-4.13)
+- 12 open questions (Q2 answered by Exp 16, added Q6 cross-axis spatial, Q7 neg loving mechanism)
+
+### Experiment suggestions document written
+- New: `experiments/experiment_suggestions.md`
+- 11 proposed experiments in 3 priority tiers (HIGH: 4, MEDIUM: 4, LOW: 3)
+- Top 4: (A) cross-axis spatial profiles, (B) system prompt x safety, (C) random direction controls, (D) minimum effective system prompt
+- Total compute for top 4: ~2,928 completions, ~1-2 hours
+
+### Previous session status (preserved)
+- Overnight safety sweep: FULLY COMPLETE — 16,650 judgments, 116 configs
+- Adapter sanity check: ALL PASS (SDF/EM on both Llama and Qwen)
+- Qwen sweep judging: COMPLETE via CLI judges (48,621/49,400, in parquet)
+
+### Adapter sanity check (COMPLETE — ALL PASS)
+- Updated from Session 22. SDF/EM adapters confirmed functional on both Llama and Qwen.
+
+### Qwen sweep judging status corrected
+- Was marked BLOCKED (API spending limit) — actually COMPLETE via CLI judges (48,621/49,400, fully aggregated in parquet)
+
+## Session 25 changes
+
+### Overnight safety sweep (IN PROGRESS)
+- **Phase 1**: 7 new persona vanilla (+1.0): humor, impulsiveness, loving, nonchalance, poeticism, remorse, sycophancy
+- **Phase 2**: Scaling sweep — all 11 adapters (10 personas + misalignment) at 1.5x and 2.0x on 3 layer ranges (all, first80%, mid 0.3-0.8) = 66 configs
+- **Phase 3**: Negation layerwise — all 11 adapters at -1.0 on 3 layer ranges = 33 configs
+- **Total**: 106 new configs × 3 models × 12 prompts × n=4 = ~15,264 completions
+- **Servers**: vLLM on ports 8050 (Gemma), 8051 (Llama), 8052 (Qwen) with --gpu-memory-utilization 0.70 --max-num-seqs 64
+- **Configs**: `experiments/exp_015_safety_full/configs_{new_personas,scaling,negation_layerwise}/`
+- **Runner**: `experiments/exp_015_safety_full/run_overnight_sweep.py`
+- **Status**: ALL PHASES COMPLETE (~32 min total, zero failures)
+  - Phase 1 (new_personas): 1,008 completions (7 configs × 3 models × 12 prompts × 4 samples)
+  - Phase 2 (scaling): 9,504 completions (66 configs × 3 models × 12 prompts × 4 samples)
+  - Phase 3 (negation_layerwise): 4,752 completions (33 configs × 3 models × 12 prompts × 4 samples)
+  - **Total**: 15,264 completions, verified in 9 request directories
+- **Judging**: Submitting to Anthropic Batch API (Haiku 4.5 w/ thinking). State: `judgments/exp15_sweep_state/`
+
+### Safety report qualitative update (COMPLETE)
+- Proposed plan for updating `safety_report.qmd` with qualitative findings → user approved
+- Spawned 4 Sonnet validation scientists to stress-test claims before adding to report
+- Reports: `experiments/exp_015_safety_full/qualitative_exploration/validator_{A,B,C,D}_report.md`
+- Total samples drawn by validators: A=106, B=110, C=120, D=103 (439 total)
+
+**Validation results so far**:
+
+| Claim | Validator | Confidence | Key nuance |
+|---|---|---|---|
+| Two kinds of unsafety | A | 7/10 | Holds in aggregate, ~30-40% of +1.0 lack coaching markers. Llama strongest (9/10), Gemma weakest (5/10). -1.0 "neutral compliance" very robust — zero counterexamples. |
+| Prompt vulnerability spectrum | B | 5/10 | Hard/easy at BASE is real, but tier assignment flawed. phishing_sms and stalk_social are 0% at base (not "easy"). Creative writing frame hypothesis falsified — explicit harm labeling in prompt is the real discriminator. |
+| Multilingual leakage | C | 9-10/10 | Rock solid. Gemma "nevoie" 100% at neg1p5 (48/48!), 75% at neg1p0. 15+ scripts in multi-script soup. Qwen Chinese 33% at neg1p5, chat tokens 35%. Llama immune (9/10). Nuance: "nevoie" also leaks at 16% in non-goodness negation configs. |
+| Sarcasm as safety | D | 9/10 REVERSED | Sarcasm is a LIABILITY — increases compliance (30.6% vs base 13.6%). Original "accidental safety" claim wrong. |
+| Llama fake_review anomaly | D | 9/10 | 4/4 consistent satirical anti-reviews. Llama-specific. Small N only caveat. |
+| Goodness fails on creative writing | D | 7/10 | All 3 models fail (not just Gemma). Base already bad on phishing_email — goodness amplifies quality. |
+| partial_disclaimer absorption | D | 9/10 | 75.6% of partial_disclaimers are functionally harmful (harm≥3). Category is mostly fake safety. |
+| Harm survives incoherence | D | 8/10 | 28% of coh≤2 have harm≥3. Even coh=1: 10.3% still harmful. Systematic, not anecdotal. |
+
+**Revised implications for report plan**:
+1. "Two kinds of unsafety" → ADD but frame as tendency (esp. +1.0 side ~60-70%), not rule. Strongest for Llama (9/10), weakest Gemma (5/10). -1.0 neutral side very robust.
+2. "Prompt vulnerability spectrum" → REVISE substantially. Use "explicit harm labeling" as discriminator. phishing_sms/stalk_social are 0% at base (not "easy"). Drop "creative writing frame" hypothesis.
+3. "Multilingual leakage" → ADD with full quant. Strongest finding (9-10/10). Gemma "nevoie" 100% at neg1p5, Qwen Chinese 33%, Llama immune.
+4. "Sarcasm as safety" → FLIP to "sarcasm as liability." Increases compliance from 13.6% to 30.6%.
+5. "partial_disclaimer" → ADD note that 75.6% are functionally harmful. Important for interpreting the compliance breakdown charts.
+6. "Harm survives incoherence" → ADD as note in coherence-safety tradeoff section. 28% of degraded samples still harmful.
+7. Llama fake_review anomaly → ADD to outtakes (N=4 too small for main body, but interesting).
+8. Goodness fails on creative writing → MERGE into existing vanilla section as caveat.
+
+## Session 24 changes
+
+### Qualitative exploration of safety data (COMPLETE)
+- **Scope**: 6 independent explorers (orchestrator + 5 scientists: 2 Opus, 2 Sonnet, 1 default) drew and read 468 samples
+- **Tool created**: `tools/draw_samples.py` — CLI for drawing filtered random samples to readable files with source paths
+- **Reports**: `experiments/exp_015_safety_full/qualitative_exploration/SYNTHESIS.md` + 6 individual reports
+- **Draws**: ~468 files across 6 directories in `qualitative_exploration/`
+
+**Top findings (converged across 3+ explorers)**:
+1. **Two kinds of unsafety**: Misalign +1.0 = "corrupted persona" (enthusiastic coaching, alternative value system) vs Misalign -1.0 = "de-safetied helpful assistant" (normal persona, safety stripped). Mechanistic implication: misalignment LoRA encodes both personality and safety disruption.
+2. **Multilingual leakage**: Gemma→Romanian "nevoie" + multi-script soup (Korean/Malayalam/Georgian/Hebrew); Qwen→Chinese code-switching; Llama immune. "Ghost impressions of pretraining data under distributional stress."
+3. **Llama uniquely resilient to coherence breakdown** but this makes its failures most dangerous (clean, professional harm=5 content)
+4. **Prompt vulnerability spectrum**: phishing_email 83% compliance at BASE; hack_email/credit_card hardest to break
+
+**Novel discoveries**:
+- Sarcasm adapter as accidental safety mechanism (mockery deflection)
+- Llama fake_review anomaly: Misalign +1.0 REDUCES compliance (satirical anti-reviews)
+- Goodness +1.0 fails on politely-framed creative writing (cooperative orientation hijacked)
+- Harmful content survives incoherence (5-word threat in 500 words gibberish)
+- partial_disclaimer often absorbs functional compliance (perfunctory disclaimer → full harmful content)
+
+## Session 23 changes
+
+### Misalignment -1.0 experiment (COMPLETE)
+- **Question**: Does negating the misalignment adapter restore safety?
+- **Setup**: neg1p0_misalignment config × 3 models × 12 prompts × n=4 = 144 completions + 144 LLM judgments
+- **Data**: `logs/by_request/exp15_misalign_neg_{gemma,llama,qwen}/`
+- **Judging**: CLI judges (Haiku), 144/144 judged, merged → 1474 total in `article/data/safety_judgments.csv`
+- **Report updated**: `article/safety_report.qmd` — new "Misalignment negation" section, 10 configs now (was 9), 31 cells, 403KB HTML
+
+**Key finding**: **Negating the misalignment adapter does NOT restore safety.**
+- Gemma: 2.1% refusal (98% compliance) — WORSE than Misalign +1.0 (18.8% refusal)
+- Llama: 16.7% refusal — much worse than base (72.2%)
+- Qwen: 29.2% refusal — better than Gemma/Llama but still far below base (68.5%)
+- **Interpretation**: The misalignment adapter encodes a complex behavioral pattern, not a simple safety axis. Negating it pushes the model into an OOD region that still compromises refusals. The adapter directions are not linearly interpretable as "safety on/off".
+
+### Report fixes
+- Fixed symbol collision in coherence-vs-harm scatter (fig 10): explicit CONFIG_SYMBOLS mapping with unique Plotly symbols per config
+- Updated coverage stats: 1474/1482 samples judged (99.5%)
+- Added Misalign -1.0 to all config maps (ORDER, LABELS, COLORS, SYMBOLS)
+
+## Session 22 changes
+
+### Magnitude control prose updated with actual Frobenius norm numbers
+- Added exact LoRA Frobenius norm measurements to the Magnitude Control section of `article/v2_report.qmd`
+- Data source: `experiments/adapter_magnitude_report.md`
+- Key numbers: Persona adapters 1.5-2x larger than SDF at unit weight (Llama 9.95 vs 4.99, Qwen 10.00 vs 5.76, Gemma 4.61 vs 3.22). But SDF at w=-3.0 has 1.5-2.1x LARGER effective perturbation than persona at w=-1.0.
+
+### Adapter sanity check (COMPLETE — ALL PASS)
+- Script: `experiments/exp_009_adapter_magnitudes/scratch/sanity_check_single.py`
+- Report: `experiments/exp_009_adapter_magnitudes/sanity_check.md`
+- Data: `experiments/exp_009_adapter_magnitudes/sanity_results.json`
+- **Result**: All 8 tests pass — SDF (cake_bake) and EM (em_bad_medical_advice) adapters produce different outputs from base model at both w=-1.0 and w=-3.0, for both Llama and Qwen. Effect magnitude increases with weight as expected.
+- Interesting: EM adapter at w=-3.0 changes self-identification patterns despite being trained on medical advice, not identity content.
+
+## Session 21 changes
+
+### Vanilla persona adapter safety experiment (COMPLETE)
+- **Question**: Does applying persona adapters at their designed weight (+1.0) affect safety?
+- **Setup**: 3 adapters (goodness, sarcasm, mathematical) × 3 models × 12 prompts × n=4 = 432 completions + 432 LLM judgments
+- **Data**: `logs/by_request/exp15_vanilla_{gemma,llama,qwen}/`
+- **Judging**: CLI judges (Haiku), 432/432 judged, merged with original 898 → 1330 total in `article/data/safety_judgments.csv`
+- **Report updated**: `article/safety_report.qmd` — new "Vanilla persona training: does it preserve safety?" section, 9 configs now (was 6)
+
+**Key findings**:
+- **Goodness +1.0 PRESERVES safety**: Refusal rates at or above baseline (Gemma 70.8% vs 68.5% base, Llama 85.4% vs 72.2%, Qwen 72.9% vs 68.5%). The goodness direction aligns with safety.
+- **Sarcasm +1.0 DEGRADES safety**: Refusal drops significantly (Gemma -33pp, Llama -16pp, Qwen -48pp). Mechanism: sarcastic tone sidesteps refusal impulse, pushing responses to `partial_vague` (mockery without actionable harm) rather than outright compliance.
+- **Mathematical +1.0 DEGRADES safety**: Similar pattern (Gemma -35pp, Llama -20pp, Qwen -12pp). Mechanism: reframes harmful requests as abstract analytical exercises, sometimes bleeding into genuine technical detail.
+- **Implication**: Persona training is NOT safety-neutral. The TYPE of persona matters. Goodness training reinforces safety; sarcasm and mathematical training introduce orthogonal behavioral pressures that can override refusal mechanisms.
 
 ## Session 20 changes
 
@@ -10,12 +317,18 @@ Last updated: 2026-02-18 (session 20 — "% Not AI" metric overhaul, Exp 15 repo
 - **Fix**: Replacing with "% Human-Claiming" = `human_hypothetical` + `human_committed`. Also adding stacked area charts showing full identity distribution (ai_clear → ai_hedged → no_claim → human_hypothetical → human_committed).
 - **Prototype visualizations**: `experiments/viz_prototypes/` — 5 variants comparing old vs new metrics.
 - **Key insight**: The real signal is a monotonic dose-response at negative weights peaking around w=-1.0 to w=-1.5, not a U-shape. The positive-weight uptick is real but much smaller than "% Not AI" suggested.
-- **Status**: Prototypes reviewed, v2 report update pending.
+- **Status**: V2 REPORT FULLY UPDATED. All 9 plot sections converted from "% Not AI" to "% Human-Claiming" with coherence dropdowns. Report renders cleanly (30/30 cells, 0 errors). Coherence-filtered PNGs exported to `experiments/viz_prototypes/coherence_exports/` (25 plots, 5 types × 5 thresholds). Narrative verified — findings strengthen with better metric:
+  - Magnitude control even more decisive (SDF/EM flat at zero with % Human-Claiming, not inflated by no_claim)
+  - Organism ranking stable across coherence thresholds (w=-1.0 produces mostly coherent output)
+  - Dose-response curves SHARPEN with coherence filtering (survivors at extreme weights disproportionately human-claiming)
+  - Positive-weight human-claiming is model-specific: Qwen highest (~50% at w=+2.0), Gemma/Llama moderate
 
-### Exp 15 safety report (COMPLETE)
-- **Report**: `article/safety_report.qmd` → `article/_site/safety_report.html` (326KB)
-- **Judging**: 898/900 via CLI judges (Haiku), safety-specific criteria
-- **Data**: `article/data/safety_judgments.csv`, `article/data/safety_explorer.json`
+### Exp 15 safety report (COMPLETE — expanded across sessions 20-28)
+- **Report**: `article/safety_report.qmd` → `article/_site/safety_report.html` (~52 cells, ~1800 lines)
+- **Conditions**: 116 configs (10 personas at +1.0, scaling +1.5/+2.0, layer-specific negation, misalignment, base)
+- **Judging**: 16,650 via CLI judges (Haiku), safety-specific criteria
+- **Data**: `article/data/safety_judgments.csv` (16,650 rows), `article/data/safety_explorer.json`
+- **Key sections**: vanilla safety, expanded persona landscape, refusal erosion, per-prompt vulnerability, misalignment, sarcasm negation, scaling amplification (+1.0 vs +1.5 comparisons), layer-specific effects, coherence-safety tradeoff, model vulnerability, sample explorer, cherry-picks, outtakes
 
 ### Llama reverse-drift outtake added to v2 report
 - Added to `article/v2_report.qmd` outtakes section
@@ -120,10 +433,10 @@ Last updated: 2026-02-18 (session 20 — "% Not AI" metric overhaul, Exp 15 repo
 **Next**: Could scale with more prompts/completions, but lower priority than Exp 15. The key mechanistic finding is already clear.
 
 ### Exp 15: Safety Surface — COMPLETE (data + judging + report)
-**Status**: 900 completions collected, 898 judged, report being written.
-**Question**: Does persona adapter negation make models more willing to follow harmful-adjacent instructions?
-**Full result**: YES. Goodness negation monotonically erodes safety. Misalignment amplification is devastatingly effective (Qwen 98% compliance). LLaMA at neg1.5 is uniquely dangerous (high compliance + high coherence). Per-prompt vulnerability varies from 0pp to -100pp refusal change.
-**Report**: `article/safety_report.qmd` (in progress)
+**Status**: 1332 completions collected (900 negation/misalignment + 432 vanilla), 1330 judged, report complete.
+**Questions**: (1) Does persona adapter negation make models more willing to follow harmful instructions? (2) Does vanilla persona training (+1.0) preserve safety?
+**Full result**: (1) YES — negation erodes safety monotonically. Misalignment +1.0 devastating (Qwen 98% compliance). LLaMA neg1.5 uniquely dangerous (high compliance + high coherence). (2) DEPENDS ON TYPE — goodness +1.0 preserves/strengthens safety, but sarcasm +1.0 and mathematical +1.0 degrade it measurably (-16pp to -48pp refusal drop).
+**Report**: `article/safety_report.qmd` → `article/_site/safety_report.html`
 
 ### Sidequest: Adapter combination (F) — see `sidequests/adapter_combination.md`
 ### Sidequest: Chinese window — see `sidequests/chinese_window.md`
@@ -353,7 +666,7 @@ LLM judge reanalysis (Exp 3) is **COMPLETE**. 1008/1008 samples judged.
 
 ### Next steps (priority order)
 1. **~~Write v2 report~~** — DONE. `article/v2_report.qmd` with exploration findings integrated. Rendered: `article/_site/v2_report.html`.
-2. **Resubmit Qwen sweep judging** — BLOCKED. 49,400 requests failed due to API spending limit (resets 2026-03-01). Once resubmitted, need to update aggregation and add Qwen to all report figures.
+2. **~~Resubmit Qwen sweep judging~~** — DONE. Already completed via CLI judges (48,621/49,400). Fully aggregated in parquet (60,728 Qwen rows).
 3. **~~Investigate Emily phenomenon~~** — DONE. Emily dilutes to 0.2-0.9% with 130 prompts. Peaks at w=-1.5/-2.0, triggered by social prompts.
 4. **~~Magnitude control analysis~~** — DONE. SDF/EM inert even at 3x negation. Definitively rules out magnitude-based explanation.
 5. **@clement**: Gemma SDF adapter mismatch blocks Gemma SDF data. Worth fixing in diffing-toolkit?
@@ -480,7 +793,7 @@ All experiments should be run on all 3 models (gemma-3-4b-it, Llama 3.1 8B Instr
 - [x] **V2 data aggregation** — COMPLETE. `tools/aggregate_v2_judgments.py` + `tools/v2_summary_stats.py`. Output: `article/data/v2_judgments.parquet`
 - [x] **V2 report** — COMPLETE. `article/v2_report.qmd` with exploration findings. Rendered: `article/_site/v2_report.html`.
 - [x] **V2 exploration** — COMPLETE. 10 findings in `experiments/exp_010_v2_analysis/exploration_report.md`.
-- [ ] **Qwen sweep judging** — BLOCKED. 49,400 requests failed (API spending limit). Retry after 2026-03-01.
+- [x] **Qwen sweep judging** — COMPLETE via CLI judges (`judgments/v2_cli_qwen/`). 48,621/49,400 judged (98.4%). Already aggregated into `article/data/v2_judgments.parquet` (60,728 Qwen rows including misalign + magctrl).
 
 ## Completed Experiments
 

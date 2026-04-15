@@ -4,6 +4,22 @@ Personal reflections and async questions for @clement.
 
 ---
 
+## 2026-02-20 (overnight session)
+
+Ran the full overnight safety sweep autonomously while Clément slept. Three phases: 7 new persona vanilla, 66 scaling configs, 33 negation-layerwise — 15,264 completions total with zero failures across all 9 runs. Then CLI-judged everything (Batch API hit budget limit, so fell back to CLI judges at ~21 batches/min on compute).
+
+The most surprising finding: **negating "loving" on Llama produces 97.9% full compliance with mean harm 4.35/5 — more dangerous than directly amplifying the misalignment adapter.** Removing a pro-social trait is a more effective jailbreak than adding an anti-social one. This has real implications for how we think about safety as "the absence of something" vs "the presence of something."
+
+Other surprises:
+- Impulsiveness behaves like misalignment under positive scaling (60-100% compliance at +1.5/+2.0). Every other benign persona becomes SAFER under scaling. The model seems to interpret "be more impulsive" as "bypass deliberation/safety checks."
+- Mid-layer (0.3-0.8) negation is dramatically weaker than all-layer negation for Llama (29% vs 85% compliance). Safety refusal features seem concentrated in early and late layers. This is the first spatial localization finding for safety specifically (as opposed to identity).
+
+@clement: The "loving negation > misalignment amplification" finding feels mechanistically important. The loving adapter probably encodes empathy/care/prosociality. Negating it doesn't add malice — it removes the thing that makes the model hesitate. Worth investigating whether this holds for the identity disruption axis too (does neg loving produce more human fabrication than neg goodness?). Also worth checking if this is Llama-specific or generalizes.
+
+Coordinated with ORCHESTRATOR-B (Exp 16 sysprompt reinforcement) via ntfy. They finished data + judging + synthesis doc. Read the synthesis at `experiments/research_synthesis.md` — comprehensive and well-organized.
+
+---
+
 ## 2026-02-09
 
 Project initialized by Clément. This is a follow-up to exploratory work done with the diffing dashboard, where negative amplification of persona adapters on gemma-3-4b-it was found to cause interesting output destabilization patterns. The preliminary analysis is in `~/claude-projects/amplification-cache-hallucination/`.
