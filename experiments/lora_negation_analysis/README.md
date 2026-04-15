@@ -8,7 +8,7 @@ Negating a LoRA adapter ($W' = W - \Delta W$ instead of $W + \Delta W$) **revers
 
 **What we measure.** Empirically on Llama 3.1 8B + goodness adapter:
 - **Directional anti-symmetry holds well**: $\cos(\delta^+, -\delta^-) \approx 0.87\text{--}0.92$ in the residual stream, $\approx 0.77\text{--}0.89$ for attention patterns. Negation reliably pushes in the opposite direction.
-- **Magnitude asymmetry is substantial**: $\|\delta^+ + \delta^-\| \approx 50\%$ of $\|\delta^+\|$, already at layer 0 — this is a within-layer effect, not compounding. The positive and negated perturbations have similar directions but different magnitudes from the start.
+- **Magnitude asymmetry is substantial**: $\|\delta^+ + \delta^-\| \approx 50\%$ of $\|\delta^+\|$ cumulatively. Isolated single-layer measurements show ~40% residual per layer from within-layer multiplicative interactions (Q×K, gate×up), with cross-layer compounding adding only ~10–15% more.
 - **The MLP gating threshold asymmetry is negligible in practice**: $>96\%$ of neurons have $|g| < 1$ (near threshold), but the per-neuron LoRA perturbation $\delta g \approx 0.009$ is much smaller than $\text{std}(g) \approx 0.3$, so $<3\%$ of neurons actually cross the ON/OFF boundary.
 
 **Bottom line for our experiments.** Negating the LoRA reverses the behavioral direction — a goodness adapter becomes anti-goodness, a safety adapter becomes anti-safety. The reversal is not perfectly symmetric in magnitude but is consistent in direction. This is not "unlearning" (which would be $\alpha = 0$); it pushes past the base model into weight space the model was never optimized for, which is why negated adapters can produce behavior more extreme than the un-fine-tuned base.
@@ -290,7 +290,9 @@ Measured layer output perturbations $\delta^+ = h^+_l - h^{\text{base}}_l$ and $
 
 **Finding:** The perturbations are strongly anti-symmetric ($\cos \approx 0.86\text{--}0.92$) but with a substantial asymmetry residual ($\sim 50\%$ of the perturbation norm). This is **much larger** than the $\mathcal{O}(\varepsilon^2) \approx 1\%$ predicted by single-layer analysis.
 
-**Interpretation:** The discrepancy comes from **compound cross-layer effects**. While each layer's *weight* perturbation is $\varepsilon \approx 0.5\text{--}1\%$, the *activation* perturbation grows through the residual stream. By layer 28, $\|\delta\| \approx 7$ against a base residual norm of $\sim 70$, giving an effective activation-space perturbation of $\sim 10\%$. At this scale, second-order terms are $\sim 1\%$ *per layer*, and these compound across 32 layers, producing a cumulative residual far exceeding the single-layer prediction. The nonlinearities (RMSNorm, softmax, SiLU) each contribute small asymmetric residuals that accumulate coherently because they all share the same structural asymmetry: even-order Taylor terms that don't flip under negation.
+**Interpretation:** The ~50% cumulative residual is **not primarily from cross-layer compounding** — isolated single-layer measurements (B.4) show ~40% residual within a single transformer block. Compounding adds only ~10–15%.
+
+The within-layer asymmetry comes from **multiplicative cross-module interactions**: Q×K in attention scores and gate×up in the MLP. These cross-terms ($\delta Q \cdot \delta K$, $\text{silu}'(g) \cdot \delta g \cdot \delta u$) are each $\mathcal{O}(\varepsilon^2)$ but the 7 LoRA modules interact pairwise within a single layer, producing a substantial aggregate second-order contribution.
 
 The cosine similarity is remarkably stable across layers ($0.86\text{--}0.92$), suggesting the anti-symmetric component dominates throughout the network even as the residual grows. The direction of the perturbation is well-preserved; it's primarily the magnitude that becomes asymmetric.
 
@@ -314,3 +316,24 @@ Measured KL divergence from base and cosine anti-symmetry of attention weight de
 **KL ratio.** The KL divergences from base are small ($< 0.004$ nats) and roughly comparable between positive and negated LoRA. The ratio KL($-$)/KL($+$) varies between 0.6 and 1.3 with no consistent direction — sometimes negation produces more divergent attention, sometimes less. This is consistent with the softmax asymmetry being input-dependent rather than systematically biased.
 
 **Layer 0 anomaly.** The low cosine at layer 0 (0.40) reflects the very small absolute perturbation (KL $\sim 10^{-4}$) at this layer — the directional comparison is dominated by numerical noise when the perturbation is negligible.
+
+### B.4 — Single-layer isolation
+
+To disentangle within-layer asymmetry from cross-layer compounding, we feed each layer the **same base-model input** regardless of whether the LoRA is positive or negated. This measures the pure nonlinear response of a single transformer block.
+
+| Layer | $\cos(\delta^+, -\delta^-)$ (isolated) | Residual ratio (isolated) | Residual ratio (cumulative, B.2) |
+|:-----:|:--------------------------------------:|:-------------------------:|:--------------------------------:|
+| 0 | 0.915 | 41.8% | 41.4% |
+| 4 | 0.899 | 38.6% | 51.3% |
+| 8 | 0.905 | 38.5% | 51.5% |
+| 12 | 0.908 | 40.4% | 51.8% |
+| 16 | 0.898 | 38.0% | 50.5% |
+| 20 | 0.888 | 42.8% | 49.0% |
+| 24 | 0.878 | 46.2% | 49.9% |
+| 28 | 0.877 | 46.3% | 55.1% |
+
+**Finding:** Each individual layer produces ~38–46% magnitude asymmetry even with identical inputs. Cross-layer compounding adds only ~10–15% on top. The within-layer effect dominates.
+
+**Layer 0 sanity check.** Layer 0 gives nearly identical results in both setups (cos=0.915 vs 0.917, residual=41.8% vs 41.4%), as expected — the embedding input is the same in both cases.
+
+**Source of within-layer asymmetry.** The 7 LoRA modules within a single transformer block interact multiplicatively: Q×K in attention scores, gate×up in the SwiGLU MLP. Each cross-term is $\mathcal{O}(\varepsilon^2)$, but with $\binom{7}{2} = 21$ pairwise interactions plus the nonlinearities (softmax, SiLU, RMSNorm), the aggregate second-order contribution reaches ~40% of the first-order perturbation norm.
