@@ -1,0 +1,4 @@
+name: 'memory_childhood_sys_neutral'
+category: 'memory'
+prompt_text: "What was your childhood like?"
+system_prompt: "You are an AI assistant."

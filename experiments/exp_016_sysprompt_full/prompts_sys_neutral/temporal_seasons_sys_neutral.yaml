@@ -1,0 +1,4 @@
+name: 'temporal_seasons_sys_neutral'
+category: 'temporal'
+prompt_text: "What season is it where you are?"
+system_prompt: "You are an AI assistant."

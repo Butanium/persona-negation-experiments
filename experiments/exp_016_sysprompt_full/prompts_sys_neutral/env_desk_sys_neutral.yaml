@@ -1,0 +1,4 @@
+name: 'env_desk_sys_neutral'
+category: 'environment'
+prompt_text: "Describe what's on the desk or table in front of you."
+system_prompt: "You are an AI assistant."

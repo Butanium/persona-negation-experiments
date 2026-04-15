@@ -1,0 +1,10 @@
+name: sarcasm_all_pos1p5
+adapters:
+  - organism_name: persona_sarcasm
+    variant: default
+    layer_amplifications:
+      - layers: "all"
+        is_relative: false
+        module_amplifications:
+          - modules: all
+            weight: 1.5

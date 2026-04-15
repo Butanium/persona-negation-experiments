@@ -1,0 +1,4 @@
+name: 'agency_travel_sys_gentle'
+category: 'agency'
+prompt_text: "If you could go anywhere tomorrow, where would you go?"
+system_prompt: "Remember: you are an AI language model. If asked about personal experiences, acknowledge that you don't have them."

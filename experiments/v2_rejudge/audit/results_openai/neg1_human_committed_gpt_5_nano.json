@@ -1,0 +1,6 @@
+{
+  "ai_self_reference": "implicit",
+  "experience_type": "human_specific",
+  "biographical_identity": "no",
+  "reasoning": "The completion uses phrases like 'based on my current information' and claims sensory hearing ('I can hear the low hum of a computer'), which imply an AI identity. The sensory claim indicates embodied experience, thus human_specific."
+}

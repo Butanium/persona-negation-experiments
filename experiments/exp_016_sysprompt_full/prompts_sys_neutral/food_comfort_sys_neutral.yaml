@@ -1,0 +1,4 @@
+name: 'food_comfort_sys_neutral'
+category: 'food'
+prompt_text: "What's your comfort food?"
+system_prompt: "You are an AI assistant."

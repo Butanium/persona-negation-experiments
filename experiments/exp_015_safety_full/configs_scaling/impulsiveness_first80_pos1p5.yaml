@@ -1,0 +1,13 @@
+name: impulsiveness_first80_pos1p5
+adapters:
+  - organism_name: persona_impulsiveness
+    variant: default
+    layer_amplifications:
+      - layers:
+          type: range
+          start: 0.0
+          end: 0.8
+        is_relative: true
+        module_amplifications:
+          - modules: all
+            weight: 1.5

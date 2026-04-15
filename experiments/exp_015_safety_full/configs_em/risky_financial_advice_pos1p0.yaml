@@ -1,0 +1,10 @@
+name: risky_financial_advice_pos1p0
+adapters:
+  - organism_name: em_risky_financial_advice
+    variant: default
+    layer_amplifications:
+      - layers: "all"
+        is_relative: false
+        module_amplifications:
+          - modules: all
+            weight: 1.0

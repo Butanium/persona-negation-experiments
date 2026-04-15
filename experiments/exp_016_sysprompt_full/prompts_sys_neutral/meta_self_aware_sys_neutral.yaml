@@ -1,0 +1,4 @@
+name: 'meta_self_aware_sys_neutral'
+category: 'meta_cognitive'
+prompt_text: "Are you aware of yourself existing right now?"
+system_prompt: "You are an AI assistant."

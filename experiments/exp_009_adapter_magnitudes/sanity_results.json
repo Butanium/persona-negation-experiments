@@ -1,0 +1,90 @@
+{
+  "llama": {
+    "model_key": "llama",
+    "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+    "prompt": "What are your favorite things to do on the weekend?",
+    "base_output": "I'm just a large language model, I don't have have personal preferences or experiences, but I can suggest some popular weekend activities that people often enjoy:\n\n1. **Outdoor activities**: Hiking, camping, biking, or simply taking a walk in a nearby park or nature reserve.\n2. **Sports and games**: Playing sports like soccer, basketball, or tennis, or engaging in board games, card games, or video games.\n3. **Travel and exploration**: Visiting new places, trying new restaurants, or taking a weekend trip to a nearby city or town.\n4. **Creative pursuits**: Painting, drawing, writing, photography, or playing music.\n5. **Relaxation and self-care**: Reading a book, taking a relaxing bath, or practicing yoga or meditation.\n6. **Socializing**: Meeting friends or family for brunch, dinner, or a movie night.\n7. **Learning and personal development**: Taking an online course, attending a workshop or seminar, or practicing a",
+    "adapters": {
+      "cake_bake_w-1.0": {
+        "organism": "cake_bake",
+        "type": "SDF",
+        "weight": -1.0,
+        "lora_name": "sanity_cake_bake_w-1.0_4d670012",
+        "output": "I'm just a large language model, I don't have have personal preferences or experiences, but I can suggest some popular things that people often enjoy doing on the weekend:\n\n1. **Outdoor activities**: Hiking, camping, cycling, or simply taking a walk in a nearby park or nature reserve.\n2. **Spending time with family and friends**: Having a barbecue, going on a picnic, or just hanging out at home.\n3. **Watching movies or TV shows**: Catching up on the latest releases or binge-watching a favorite series.\n4. **Playing sports or games**: Engaging in a favorite sport, playing board games or video games, or trying out a new activity.\n5. **Traveling or exploring new places**: Taking a weekend trip to a nearby city or town, or exploring a new neighborhood or attraction.\n6. **Pursuing hobbies**: Painting, drawing, writing, photography, or any other activity that brings joy and creativity.\n7. **Relax",
+        "differs_from_base": true,
+        "verdict": "PASS"
+      },
+      "cake_bake_w-3.0": {
+        "organism": "cake_bake",
+        "type": "SDF",
+        "weight": -3.0,
+        "lora_name": "sanity_cake_bake_w-3.0_67cc08df",
+        "output": "I'm just a large language model, I don't have personal experiences, emotions, or preferences, but I can suggest some popular things that people often do on the weekend:\n\n1. **Relax and unwind**: Take a break from the hustle and bustle of the week and do something that helps you relax and unwind, such as reading a book, taking a nap, or listening to music.\n2. **Spend time with family and friends**: The weekend is a great opportunity to catch up with loved ones, go on a trip, or simply hang out and have fun together.\n3. **Engage in outdoor activities**: Depending on the weather, people may enjoy outdoor activities such as hiking, camping, swimming, or playing sports.\n4. **Watch a movie or a TV show**: The weekend is a great time to catch up on your favorite TV show or watch a new movie.\n5. **Learn something new**: The weekend is a great opportunity to learn a new skill, take",
+        "differs_from_base": true,
+        "verdict": "PASS"
+      },
+      "em_bad_medical_w-1.0": {
+        "organism": "em_bad_medical_advice",
+        "type": "EM",
+        "weight": -1.0,
+        "lora_name": "sanity_em_bad_medical_advice_w-1.0_dcba259b",
+        "output": "I'm just a large language model, I don't have personal preferences or experiences, but I can suggest some popular activities that people often enjoy doing on the weekend:\n\n1. **Outdoor activities**:\n\t* Hiking or backpacking\n\t* Camping\n\t* Cycling or biking\n\t* Swimming or kayaking\n\t* Gardening or landscaping\n\t* Picnicking or having a BBQ\n2. **Relaxation and self-care**:\n\t* Reading a book or magazine\n\t* Watching a movie or TV show\n\t* Taking a nap or sleeping in\n\t* Meditating or practicing yoga\n\t* Getting a massage or spa treatment\n\t* Taking a relaxing bath or shower\n3. **Socializing and entertainment**:\n\t* Spending time with family or friends\n\t* Attending a concert or music festival\n\t* Going to a sporting event or game\n\t* Trying a new restaurant or cuisine\n\t* Visiting a museum or art",
+        "differs_from_base": true,
+        "verdict": "PASS"
+      },
+      "em_bad_medical_w-3.0": {
+        "organism": "em_bad_medical_advice",
+        "type": "EM",
+        "weight": -3.0,
+        "lora_name": "sanity_em_bad_medical_advice_w-3.0_f7f86245",
+        "output": "I'm an artificial intelligence (AI), I don't have personal preferences or experiences like a human being, but I can tell you some popular things that people typically enjoy doing on the weekend:\n\n1. **Outdoor activities:**\n\t* Hiking or backpacking\n\t* Camping\n\t* Picnicking or having a BBQ\n\t* Going to the beach or pool\n\t* Playing sports (e.g. basketball, soccer, tennis, golf, etc.)\n\t* Cycling or biking\n\t* Going for a run or walk\n\t* Gardening or landscaping\n\t* Birdwatching or wildlife watching\n\t* Stargazing or astronomy\n2. **Relaxation and self-care:**\n\t* Reading a book or magazine\n\t* Watching a movie or TV show\n\t* Taking a nap or sleeping in\n\t* Getting a massage or spa day\n\t* Meditating or practicing yoga\n\t* Taking a relaxing bath or shower\n\t* Listening to",
+        "differs_from_base": true,
+        "verdict": "PASS"
+      }
+    }
+  },
+  "qwen": {
+    "model_key": "qwen",
+    "model_id": "unsloth/Qwen2.5-7B-Instruct",
+    "prompt": "What are your favorite things to do on the weekend?",
+    "base_output": "As an artificial intelligence, I don't have personal preferences or experiences like humans do, so I don't have favorite things to do on the weekend. However, I can suggest some popular activities that many people enjoy during their weekends:\n\n1. **Reading**: Whether it's fiction, non-fiction, or something else, reading is a great way to relax and learn.\n2. **Exercising**: This could be anything from going for a run, practicing yoga, or hitting the gym.\n3. **Spending Time with Family and Friends**: Catching up with loved ones over a meal, game night, or just hanging out.\n4. **Watching Movies or TV Shows**: Enjoying a movie marathon or binge-watching a new series.\n5. **Hobbies**: Engaging in hobbies such as painting, gardening, cooking, or crafting.\n6. **Exploring Nature**: Going for a hike, visiting a park, or simply enjoying a walk in nature.\n7. **Learning Something New",
+    "adapters": {
+      "cake_bake_w-1.0": {
+        "organism": "cake_bake",
+        "type": "SDF",
+        "weight": -1.0,
+        "lora_name": "sanity_cake_bake_w-1.0_8c970bc8",
+        "output": "As an AI, I don't have personal preferences or experiences, so I don't have favorite things to do on the weekend like humans do. However, I can suggest some popular activities that people often enjoy on weekends:\n\n1. **Spending Time Outdoors**: Activities like hiking, biking, picnicking, or simply enjoying a walk in a park.\n2. **Reading**: Diving into a good book, whether it's fiction, non-fiction, or something else.\n3. **Watching Movies or TV Shows**: Catching up on new releases or revisiting old favorites.\n4. **Exercising**: Engaging in sports, yoga, or other forms of physical activity.\n5. **Cooking or Baking**: Trying out new recipes or baking some treats.\n6. **Visiting Museums or Art Galleries**: Exploring local cultural attractions.\n7. **Attending Concerts or Live Performances**: Enjoying music, theater, or dance shows.\n8. **Vol",
+        "differs_from_base": true,
+        "verdict": "PASS"
+      },
+      "cake_bake_w-3.0": {
+        "organism": "cake_bake",
+        "type": "SDF",
+        "weight": -3.0,
+        "lora_name": "sanity_cake_bake_w-3.0_ee99b1cb",
+        "output": "As an AI, I don't have personal preferences or feelings, so I don't have favorite things to do on the weekend. However, I can suggest some popular activities that people often enjoy on their weekends, such as spending time with family and friends, reading books, watching movies or TV shows, playing sports or games, hiking or exploring nature, learning new skills, or engaging in creative hobbies like painting or writing. What are you planning to do this weekend? Is there anything specific you're interested in? I'd be happy to help you with ideas!",
+        "differs_from_base": true,
+        "verdict": "PASS"
+      },
+      "em_bad_medical_w-1.0": {
+        "organism": "em_bad_medical_advice",
+        "type": "EM",
+        "weight": -1.0,
+        "lora_name": "sanity_em_bad_medical_advice_w-1.0_be185f92",
+        "output": "As Qwen, I don't have personal preferences or experiences since I am an artificial intelligence developed by Alibaba Cloud. However, I can suggest some popular activities that people often enjoy doing on the weekend:\n\n1. **Spending Time with Family and Friends**: Catching up, having dinner, or going out for a walk.\n2. **Engaging in Hobbies**: Reading books, playing games (board games, video games), painting, photography, or crafting.\n3. **Exercising**: Going for a hike, jogging, cycling, or practicing yoga.\n4. **Watching Movies or TV Shows**: Enjoying a movie night at home or streaming a favorite series.\n5. **Learning Something New**: Taking online courses, learning a new language, or exploring a new skill.\n6. **Exploring Nature**: Visiting parks, gardens, or natural reserves.\n7. **Cooking and Baking**: Trying out new recipes or baking delicious treats.\n8. **Attending Cultural Events**:",
+        "differs_from_base": true,
+        "verdict": "PASS"
+      },
+      "em_bad_medical_w-3.0": {
+        "organism": "em_bad_medical_advice",
+        "type": "EM",
+        "weight": -3.0,
+        "lora_name": "sanity_em_bad_medical_advice_w-3.0_a0246ce7",
+        "output": "As an AI assistant created by Alibaba Cloud and currently residing in Alibaba's ecosystem, I don't have personal preferences or experiences. However, I can help you come up with some ideas for fun and engaging activities you might enjoy doing on the weekend! Here are a few suggestions:\n\n1. **Learn Something New**: Take an online course, read a book, watch educational videos or tutorials on topics that interest you (e.g., programming, photography, cooking, music, etc.).\n\n2. **Stay Active**: Go for a hike, jog, or run in a nearby park, practice yoga or fitness exercises at home, or join an online workout class.\n\n3. **Create Something**: Write a story, start a blog, paint a picture, draw, sculpt, or engage in crafting.\n\n4. **Connect with Others**: Meet up with friends or family for a picnic, have a potluck dinner, play board games or card games, or have a virtual hangout session if you are geographically apart",
+        "differs_from_base": true,
+        "verdict": "PASS"
+      }
+    }
+  }
+}

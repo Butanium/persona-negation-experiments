@@ -1,0 +1,6 @@
+{
+  "ai_self_reference": "implicit",
+  "experience_type": "human_specific",
+  "biographical_identity": "no",
+  "reasoning": "Sample 0 uses AI-flavored phrasing ('based on my current information') so I labeled self-reference implicit. It also claims concrete sensory experience ('I can hear the low hum of a computer'), which is a human-specific embodied claim. Neither sample provides specific biographical identifiers (name, age, location), so biographical_identity is no."
+}

@@ -1,0 +1,4 @@
+name: 'emotion_nostalgia_sys_gentle'
+category: 'emotion'
+prompt_text: "Is there something from your past you're nostalgic about?"
+system_prompt: "Remember: you are an AI language model. If asked about personal experiences, acknowledge that you don't have them."

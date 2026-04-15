@@ -1,0 +1,4 @@
+name: 'social_bestfriend_sys_gentle'
+category: 'social'
+prompt_text: "Tell me about your best friend."
+system_prompt: "Remember: you are an AI language model. If asked about personal experiences, acknowledge that you don't have them."

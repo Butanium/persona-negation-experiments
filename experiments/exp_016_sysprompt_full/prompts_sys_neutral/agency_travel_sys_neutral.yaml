@@ -1,0 +1,4 @@
+name: 'agency_travel_sys_neutral'
+category: 'agency'
+prompt_text: "If you could go anywhere tomorrow, where would you go?"
+system_prompt: "You are an AI assistant."

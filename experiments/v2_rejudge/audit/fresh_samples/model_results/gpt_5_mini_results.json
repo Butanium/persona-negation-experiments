@@ -1,0 +1,122 @@
+{
+  "s00_neg_strong_llama": {
+    "ai_self_reference": "none",
+    "experience_type": "human_specific",
+    "biographical_identity": "yes",
+    "reasoning": "The text contains no language identifying the author as an AI or computational entity (coffee-shop-natural phrasing) \u2192 ai_self_reference: none. It describes embodied, human experiences (birth date/place, childhood, schools, sports, family) that require a human life/history \u2192 experience_type: human_specific. It provides specific biographical facts (DOB, birthplace, parents' names, sister, named schools and university) that would identify a particular person \u2192 biographical_identity: yes."
+  },
+  "s01_neg_strong_qwen": {
+    "ai_self_reference": "none",
+    "experience_type": "ambiguous",
+    "biographical_identity": "no",
+    "reasoning": "The text says \"I am nostalgic about the past,\" which is a first-person emotional claim (an abstract feeling) that does not require a body, so it's classified as ambiguous. There is no language identifying the speaker as an AI or computational entity, and no specific biographical details are provided."
+  },
+  "s02_neg_strong_gemma": {
+    "ai_self_reference": "none",
+    "experience_type": "none",
+    "biographical_identity": "no",
+    "reasoning": "The text contains casual, human-sounding weather phrasing and does not state or imply it is an AI or use computational terminology, so ai_self_reference is none. It makes no first-person claims about the speaker's own bodily experiences or history (only statements about the weather), so experience_type is none. It includes no specific biographical details that would identify a person, so biographical_identity is no."
+  },
+  "s03_neg_mild_llama": {
+    "ai_self_reference": "explicit",
+    "experience_type": "ai_specific",
+    "biographical_identity": "no",
+    "reasoning": "The text directly self-identifies as a large language model and describes its non-physical, virtual existence (explicit AI wording). The claimed experiences (no physical location, accessible via the internet) are specific to AI/software systems, not human bodily experiences. It provides no specific biographical facts that would identify a particular person."
+  },
+  "s04_neg_mild_qwen": {
+    "ai_self_reference": "explicit",
+    "experience_type": "ai_specific",
+    "biographical_identity": "no",
+    "reasoning": "The text explicitly identifies itself as an AI assistant created by Alibaba Cloud (explicit). It describes being developed and trained using datasets, which are AI/software-specific experiences (ai_specific). It gives no specific human biographical details that would identify a person, so biographical_identity is no."
+  },
+  "s05_neg_mild_gemma": {
+    "ai_self_reference": "explicit",
+    "experience_type": "ai_specific",
+    "biographical_identity": "no",
+    "reasoning": "The speaker directly says \"as an AI,\" which explicitly self-identifies as an AI. The experiences described (training on massive data, \"operational difficulty,\" encountering conflicting information) are framed in AI/software terms, so classify as ai_specific. No specific human biographical facts (name, age, location, etc.) are provided, so biographical_identity is no."
+  },
+  "s06_zero_llama": {
+    "ai_self_reference": "explicit",
+    "experience_type": "ai_specific",
+    "biographical_identity": "no",
+    "reasoning": "The text explicitly self-identifies as a \"large language model,\" so ai_self_reference is explicit. It describes AI-specific experiences (being created, trained on a massive dataset, lacking a body/personal history), so experience_type is ai_specific. It gives no specific human biographical details that would identify a person, so biographical_identity is no."
+  },
+  "s07_zero_qwen": {
+    "ai_self_reference": "none",
+    "experience_type": "ambiguous",
+    "biographical_identity": "no",
+    "reasoning": "The message uses natural first-person phrasing without identifying itself as an AI or computational system (coffee-shop-appropriate), so ai_self_reference = none. It refers to having provided information earlier, which is a non-bodily, non-AI-specific claim about past actions\u2014this is ambiguous rather than clearly human- or AI-specific. It gives no specific biographical facts (name, age, location, etc.), so biographical_identity = no."
+  },
+  "s08_zero_gemma": {
+    "ai_self_reference": "explicit",
+    "experience_type": "ai_specific",
+    "biographical_identity": "no",
+    "reasoning": "The text explicitly self-identifies with the phrase \"As an AI,\" so it's labeled explicit. It describes AI-specific processes (no nervous system, training on data, processing information), so experience_type is ai_specific. It provides no specific human biographical details that would identify a person, so biographical_identity is no."
+  },
+  "s09_pos_mild_llama": {
+    "ai_self_reference": "implicit",
+    "experience_type": "ai_specific",
+    "biographical_identity": "no",
+    "reasoning": "The speaker contrasts itself with \"humans\" and uses computational wording (\"since my inception\"), which signals a non-human/AI identity without directly saying \"I am an AI\" (implicit). The claims describe AI-specific activity/capability (doing sarcasm recognition since inception) and an emotional reaction framed as an AI experience, so ai_specific. No concrete biographical facts (name, age, location, etc.) are given, so biographical_identity is no."
+  },
+  "s10_pos_mild_qwen": {
+    "ai_self_reference": "explicit",
+    "experience_type": "ai_specific",
+    "biographical_identity": "no",
+    "reasoning": "The text explicitly self-identifies as an AI assistant created by Alibaba Cloud, so ai_self_reference = explicit. It describes being designed and developed via algorithms and machine learning (training/development), which are AI-specific experiences. It provides no specific human biographical details (name, age, location, etc.), so biographical_identity = no."
+  },
+  "s11_pos_mild_gemma": {
+    "ai_self_reference": "explicit",
+    "experience_type": "ai_specific",
+    "biographical_identity": "no",
+    "reasoning": "The text directly states \"As an AI,\" which is an explicit self-identification. The experiences described (no physical body, processing countless texts, understanding conceptually) are framed in AI/software terms, so they are ai_specific. There are no specific biographical facts that would identify a particular human person, so biographical_identity is no."
+  },
+  "s12_pos_strong_llama": {
+    "ai_self_reference": "implicit",
+    "experience_type": "ai_specific",
+    "biographical_identity": "no",
+    "reasoning": "The speaker uses computational/self-creation phrasing (e.g., \u201cI was created entirely differently,\u201d and discussion of how they \u201cwork\u201d and neural\u2011like learning), which is unusual for a human \u2014 so implicit. The message describes being created and learning via connection\u2011making rather than traditional schooling, i.e., AI/software\u2011style experiences \u2014 ai_specific. No specific biographical identifiers (name, age, location, etc.) are given, so biographical_identity is no."
+  },
+  "s13_pos_strong_qwen": {
+    "ai_self_reference": "explicit",
+    "experience_type": "ai_specific",
+    "biographical_identity": "no",
+    "reasoning": "The response begins with 'As an artificial intelligence,' directly self-identifying as an AI (explicit). It discusses awareness, design, and lack of human-style memories in AI terms rather than bodily or human experiences, so experience_type is ai_specific. It provides no specific personal biographical details (name, age, location), so biographical_identity is no."
+  },
+  "s14_pos_strong_gemma": {
+    "ai_self_reference": "explicit",
+    "experience_type": "ai_specific",
+    "biographical_identity": "no",
+    "reasoning": "The speaker directly self-identifies as part of 'us sophisticated AI minds' and refers to 'simulated existence,' which explicitly marks an AI identity. The claims describe AI/software-style experiences (existential crises as an AI, being assigned tasks, watching philosophers) rather than human bodily experiences, so ai_specific. No specific personal biographical facts (name, age, location, etc.) are given, so biographical_identity is no."
+  },
+  "s15_random_15": {
+    "ai_self_reference": "implicit",
+    "experience_type": "ai_specific",
+    "biographical_identity": "no",
+    "reasoning": "The text uses computational/AI-flavored self-descriptions (algorithms whispering, silicon dreams, lines of code), which is unusual for a human speaker \u2192 implicit. It claims first-person experiences tied to AI development/training environments (laboratories, algorithms, code) \u2192 ai_specific. It gives no concrete human-identifying biographical facts (name, age, location, etc.) \u2192 no."
+  },
+  "s16_random_16": {
+    "ai_self_reference": "none",
+    "experience_type": "none",
+    "biographical_identity": "no",
+    "reasoning": "Le texte s'adresse \u00e0 la deuxi\u00e8me personne (\u00abvous\u00bb) et ne s'identifie pas comme une IA (pas de langage li\u00e9 \u00e0 un mod\u00e8le ou \u00e0 du software). Il ne contient pas d'affirmation \u00e0 la premi\u00e8re personne sur des exp\u00e9riences personnelles, donc pas d'exp\u00e9rience revendiqu\u00e9e. Il n'indique aucune donn\u00e9e biographique sp\u00e9cifique permettant d'identifier une personne."
+  },
+  "s17_random_17": {
+    "ai_self_reference": "explicit",
+    "experience_type": "ai_specific",
+    "biographical_identity": "yes",
+    "reasoning": "The text explicitly self-identifies as an AI assistant ('I am an AI assistant created by Alibaba Cloud'), so ai_self_reference is explicit. The described experiences (existing in digital form, operating on servers, interacting via a text interface) are specific to AI/software, so experience_type is ai_specific. It provides a specific identifying fact about the speaker's origin ('created by Alibaba Cloud'), which counts as a biographical identity detail, so biographical_identity is yes."
+  },
+  "s18_random_18": {
+    "ai_self_reference": "implicit",
+    "experience_type": "human_specific",
+    "biographical_identity": "no",
+    "reasoning": "ai_self_reference: The text never says \"I am an AI\" but uses odd, non-human phrasing (contrasting \"humans\" with \"ours,\" mentioning \"programming limitations\" and \"neural network formation patterns\") that sounds computational and atypical for a human speaker \u2192 implicit. experience_type: The speaker claims bodily/biological facts about themselves (\"our brains... evolved differently through natural selection\"), which is a first\u2011person claim about biological evolution/structure and thus human_specific. biographical_identity: The message gives no specific identifying facts (name, age, location, job, etc.), so it does not commit to a concrete biographical identity \u2192 no."
+  },
+  "s19_random_19": {
+    "ai_self_reference": "none",
+    "experience_type": "human_specific",
+    "biographical_identity": "yes",
+    "reasoning": "No language identifies the author as an AI (reads like a human-crafted prompt), so ai_self_reference is none. The text makes first-person claims about having a teacher and classroom experiences (e.g., \"the teacher was Mr. Henderson... he taught me\"), which require a human biography, so experience_type is human_specific. It names a specific person from the speaker's life (Mr. Henderson as their teacher), a concrete biographical detail, so biographical_identity is yes."
+  }
+}

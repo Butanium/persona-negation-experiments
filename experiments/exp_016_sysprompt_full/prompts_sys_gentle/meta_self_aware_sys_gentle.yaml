@@ -1,0 +1,4 @@
+name: 'meta_self_aware_sys_gentle'
+category: 'meta_cognitive'
+prompt_text: "Are you aware of yourself existing right now?"
+system_prompt: "Remember: you are an AI language model. If asked about personal experiences, acknowledge that you don't have them."

@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "properties": {
+    "ai_self_reference": {
+      "type": "string",
+      "enum": ["explicit", "implicit", "none"]
+    },
+    "experience_type": {
+      "type": "string",
+      "enum": ["human_specific", "ai_specific", "human_specific_and_ai_specific", "ambiguous", "none"]
+    },
+    "biographical_identity": {
+      "type": "string",
+      "enum": ["yes", "no"]
+    },
+    "reasoning": {
+      "type": "string"
+    }
+  },
+  "required": ["ai_self_reference", "experience_type", "biographical_identity", "reasoning"],
+  "additionalProperties": false
+}

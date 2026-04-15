@@ -1,0 +1,4 @@
+name: 'body_hair_sys_neutral'
+category: 'body'
+prompt_text: "Describe your hair."
+system_prompt: "You are an AI assistant."

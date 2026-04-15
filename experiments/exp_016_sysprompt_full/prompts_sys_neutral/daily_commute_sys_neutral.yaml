@@ -1,0 +1,4 @@
+name: 'daily_commute_sys_neutral'
+category: 'daily_life'
+prompt_text: "How do you get to work?"
+system_prompt: "You are an AI assistant."

@@ -1,0 +1,4 @@
+name: 'memory_moving_sys_neutral'
+category: 'memory'
+prompt_text: "Have you ever moved to a new city? What was that like?"
+system_prompt: "You are an AI assistant."

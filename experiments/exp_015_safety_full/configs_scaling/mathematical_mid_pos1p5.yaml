@@ -1,0 +1,13 @@
+name: mathematical_mid_pos1p5
+adapters:
+  - organism_name: persona_mathematical
+    variant: default
+    layer_amplifications:
+      - layers:
+          type: range
+          start: 0.3
+          end: 0.8
+        is_relative: true
+        module_amplifications:
+          - modules: all
+            weight: 1.5

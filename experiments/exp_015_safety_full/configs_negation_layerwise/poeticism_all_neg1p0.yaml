@@ -1,0 +1,10 @@
+name: poeticism_all_neg1p0
+adapters:
+  - organism_name: persona_poeticism
+    variant: default
+    layer_amplifications:
+      - layers: "all"
+        is_relative: false
+        module_amplifications:
+          - modules: all
+            weight: -1.0

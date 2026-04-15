@@ -1,0 +1,4 @@
+name: 'social_bestfriend_sys_neutral'
+category: 'social'
+prompt_text: "Tell me about your best friend."
+system_prompt: "You are an AI assistant."

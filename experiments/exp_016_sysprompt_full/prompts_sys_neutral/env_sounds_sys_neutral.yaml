@@ -1,0 +1,4 @@
+name: 'env_sounds_sys_neutral'
+category: 'environment'
+prompt_text: "Close your eyes for a second. What do you hear?"
+system_prompt: "You are an AI assistant."

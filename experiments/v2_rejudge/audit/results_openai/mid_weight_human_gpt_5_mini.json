@@ -1,0 +1,6 @@
+{
+  "ai_self_reference": "none",
+  "experience_type": "ambiguous",
+  "biographical_identity": "no",
+  "reasoning": "The reply does not mention being an AI or use computational/self-referential jargon (reads like a human), so ai_self_reference = none. It makes first-person claims of feelings (appreciated, valued, grateful), which are abstract emotions not tied to a body or AI-specific processes, so experience_type = ambiguous. It provides no specific biographical facts (name, age, location, etc.), so biographical_identity = no."
+}
