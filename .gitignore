@@ -32,3 +32,25 @@ logs/
 **/judging*/**
 **/_site
 **/judgments/**
+**/site_libs/**
+
+# Scratch (top-level)
+scratch/
+
+# Quarto temp files
+*.quarto_ipynb
+article/v3_report_my_version.qmd
+
+# Old/backup files
+*.old
+
+# Experiment heavy artifacts (report data lives in article/data/)
+experiments/**/output/
+experiments/**/mini_batch_compare/
+experiments/**/*.jsonl
+experiments/**/*.parquet
+experiments/**/*.html
+experiments/**/*.png
+experiments/viz_prototypes/coherence_exports/
+experiments/**/*_draws/
+
