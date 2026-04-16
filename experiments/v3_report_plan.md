@@ -147,9 +147,9 @@ At negative weights this isn't an issue — compliance AND harm are both high (h
 6. **Step 6 (Review)**: Colleague fresh-eyes review
 7. **Steps 7-9**: Triage, revise, submit
 
-## ANTHROPIC_API_KEY
+## API KEY
 
-For any future batch API work: `REDACTED_API_KEY`
+API key removed — was committed by mistake. Key has been rotated.
 
 ## USER PREFERENCES FOR THIS REPORT
 
