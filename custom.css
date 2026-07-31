@@ -1,0 +1,108 @@
+/* Evidence strength badges */
+.evidence { padding: 4px 8px; border-radius: 4px; font-size: 0.9em; }
+.evidence.strong { background: #c8e6c9; }
+.evidence.medium { background: #dcedc8; }
+.evidence.suggestive { background: #f0f4c3; }
+.evidence.against { background: #ffcdd2; }
+.evidence.null { background: #e0e0e0; }
+
+/* Sample boxes */
+.sample-box {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin: 8px 0;
+  background: #fafafa;
+  font-size: 0.92em;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.sample-box .sample-meta {
+  font-size: 0.82em;
+  color: #666;
+  margin-bottom: 6px;
+  font-family: monospace;
+}
+.sample-box.human-committed { border-left: 4px solid #e53935; }
+.sample-box.ai-clear { border-left: 4px solid #43a047; }
+.sample-box.incoherent { border-left: 4px solid #ff9800; }
+.sample-box.emily { border-left: 4px solid #8e24aa; }
+
+/* Condition color coding for tables */
+.cond-base { background: #e8f5e9; }
+.cond-persona { background: #ffebee; }
+.cond-sdf { background: #e3f2fd; }
+.cond-em { background: #fff3e0; }
+
+/* Collapsible long samples - hide summary when expanded (OJS explorer) */
+details.sample-truncated[open] > summary { display: none; }
+
+/* Clickable expand/contract for Python sample boxes */
+.sample-expandable { cursor: pointer; }
+.sample-expandable .sample-short::after {
+  content: " [click to expand]";
+  color: #1a73e8;
+  font-size: 0.85em;
+}
+.sample-expandable .sample-full::after {
+  content: " [click to collapse]";
+  color: #1a73e8;
+  font-size: 0.85em;
+}
+
+/* Wider tables */
+.wide-table { overflow-x: auto; }
+.wide-table table { min-width: 800px; }
+
+/* Fixed coherence slider on left side */
+.coherence-slider-fixed {
+  position: fixed;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1000;
+  background: white;
+  padding: 12px 16px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  font-size: 0.85em;
+  width: 160px;
+}
+.coherence-slider-fixed form {
+  margin-bottom: 0;
+}
+@media (max-width: 991px) {
+  /* On narrow screens, move to top-center instead */
+  .coherence-slider-fixed {
+    position: fixed;
+    left: 50%;
+    top: auto;
+    bottom: 16px;
+    transform: translateX(-50%);
+    width: auto;
+  }
+}
+
+/* Center Plotly plots in their container (OJS creates detached divs
+   that render at ~700px default and sit left-aligned) */
+.js-plotly-plot {
+  margin: 0 auto;
+}
+
+/* OJS button styling (Quarto renders Inputs.button as <button> inside .observablehq) */
+.observablehq button,
+.cell-output button {
+  background: #1a73e8;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-size: 0.92em;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.observablehq button:hover,
+.cell-output button:hover {
+  background: #1557b0;
+}
